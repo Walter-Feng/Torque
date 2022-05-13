@@ -5,65 +5,50 @@
 #include <cutensor.h>
 
 namespace torque {
-    template<typename T>
-    class Tensor
-    {
-    public:
-        Tensor(cutensorHandle_t cutensorhandle, const arma::uvec & dimension) {
 
-            this->cutensor_handle = cutensorhandle;
+template<typename T>
+class Tensor
+{
+public:
 
-            this->dimension = dimension;
+    inline
+    Tensor(const arma::uvec & dimension) {
 
-            const arma::uword dims = dimension.n_elem;
+        this->dimension = dimension;
 
-            arma::uword table_index = 1;
+        const arma::uword dims = dimension.n_elem;
 
-            this->index_table = arma::uvec(dims);
+        arma::uword table_index = 1;
 
-            for (arma::uword i = 0; i < dims; i++) {
-                this->index_table(i) = table_index;
-                table_index *= dimension(i);
-            }
+        this->index_table = arma::uvec(dims);
 
+        for (arma::uword i = 0; i < dims; i++) {
+            this->index_table(i) = table_index;
+            table_index *= dimension(i);
         }
 
-        virtual ~Tensor();
+        this->rank = dims;
 
-        /// Initialization of the data, with proper memory allocation
-        virtual void initialize(const arma::uvec & dimension);
-        virtual void initialize(const T * source_data, const arma::uvec & dimension);
+    }
 
-        /// Transposition of the tensors according to the permutation
-        /// \param permutation the permutation indices
-        virtual void transpose(const arma::uvec & permutation);
+    /// Transposition of the tensors according to the permutation
+    /// \param permutation the permutation indices
+    virtual void transpose(const arma::uvec & permutation) {}
 
-        /// Contraction with another tensor
-        /// \param tensor another tensor to be contracted with
-        virtual Tensor<T> contract(const Tensor<T> & tensor) const;
+protected:
 
-        /// get the number from tensor with given indces
-        /// \param indices indices for each dimension
-        virtual T query(const arma::uvec & indices) const;
+    /// The rank of the tensor
+    arma::uword rank;
 
-    protected:
+    /// The dimensions at each index of the tensor. The first index is the leading dimension of the
+    /// tensor, i.e. difference of 1 for the first index will result in neighboring address in the
+    /// data.
+    arma::uvec dimension;
 
-        /// The rank of the tensor
-        arma::uword rank;
 
-        /// The dimensions at each index of the tensor. The first index is the leading dimension of the
-        /// tensor, i.e. difference of 1 for the first index will result in neighboring address in the
-        /// data.
-        arma::uvec dimension;
 
-        /// An intermediate table that helps generating the index for the flattened one-dimensional data
-        arma::uvec index_table;
-    private:
+};
 
-        /// Stores data;
-        T * data = nullptr;
-
-    };
 }
 
 
