@@ -111,28 +111,56 @@ TEST_CASE("dense tensor operation") {
     }
 
     SECTION("matrix multiplication") {
-        const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+        const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
 
         const torque::DenseTensor<float> tensor_format(vec.data(), {3, 3});
 
         const auto A_squared = tensor_format.contract(tensor_format, arma::umat({1, 0}));
 
+        const arma::mat ref_A = arma::mat{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}.t();
 
+        const arma::mat ref_A_squared = ref_A * ref_A;
+
+        for(arma::uword i=0; i<3; i++) {
+            for(arma::uword j=0; j<3; j++) {
+                CHECK(A_squared.query(arma::uvec{i, j}) == ref_A_squared(i, j));
+            }
+        }
+    }
+
+    SECTION("matrix inner product") {
+        const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
+
+        const torque::DenseTensor<float> tensor_format(vec.data(), {3, 3});
+
+        const auto A_squared =
+                tensor_format.contract(tensor_format,
+                                       arma::umat({{1, 0}, {0, 1}}));
+
+        const arma::mat ref_A = arma::mat{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}.t();
+
+        const double result = arma::sum(ref_A % ref_A.t());
+
+        for(arma::uword i=0; i<3; i++) {
+            for(arma::uword j=0; j<3; j++) {
+                CHECK(A_squared.query(arma::uvec{i, j}) == ref_A_squared(i, j));
+            }
+        }
     }
 
 
     SECTION("armadillo playground") {
 
-        arma::uvec table = {0,1,2,3,4};
-        std::cout << table.rows(1,3).t() << std::endl;
-        table.shed_rows(arma::uvec{2,4});
-        table.insert_rows(2 , 1);
-        table.insert_rows(4 , 1);
-
-        std::cout << arma::uvec{0}.rows(0, 0) << std::endl;
-        std::cout << table.t() << std::endl;
-
-        std::cout << arma::sum(arma::uvec{} % arma::uvec{}) << std::endl;
+//        arma::uvec table = {0,1,2,3,4};
+//        std::cout << table.rows(1,3).t() << std::endl;
+//        table.shed_rows(arma::uvec{2,4});
+//        table.insert_rows(2 , 1);
+//        table.insert_rows(4 , 1);
+//
+//        std::cout << arma::uvec{0}.rows(0, 0) << std::endl;
+//        std::cout << table.t() << std::endl;
+//
+//        std::cout << arma::sum(arma::uvec{} % arma::uvec{}) << std::endl;
     }
 
 }
