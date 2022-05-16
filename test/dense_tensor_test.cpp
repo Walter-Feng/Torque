@@ -100,6 +100,26 @@ TEST_CASE("dense tensor operation") {
 
     }
 
+    SECTION("vector contraction") {
+        const std::vector<float> vec{0,1,2,3,4};
+
+        const torque::DenseTensor<float> tensor_format(vec.data(), {5});
+        const auto result =
+                tensor_format.contract(tensor_format, arma::umat({0, 0}));
+
+        assert(result.to_number() == 30);
+    }
+
+    SECTION("matrix multiplication") {
+        const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+        const torque::DenseTensor<float> tensor_format(vec.data(), {3, 3});
+
+        const auto A_squared = tensor_format.contract(tensor_format, arma::umat({1, 0}));
+
+
+    }
+
 
     SECTION("armadillo playground") {
 

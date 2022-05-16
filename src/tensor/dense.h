@@ -113,7 +113,7 @@ public:
         this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(this->dimension)));
 
         if(tensor.data) {
-            memcpy(this->data.get(), tensor.data, sizeof(T) * arma::prod(dimension));
+            memcpy(this->data.get(), tensor.data.get(), sizeof(T) * arma::prod(dimension));
         } else {
             throw Error("Source data not allocated!");
         }
@@ -122,6 +122,14 @@ public:
     inline
     ~DenseTensor(){
         this->data.release();
+    }
+
+    ///
+    inline
+    T to_number() const {
+        assert(this->rank == 0);
+        return *(this->data.get());
+
     }
 
     /// Initialization of the data, with proper memory allocation and memory copy
@@ -233,7 +241,7 @@ public:
 
                 const T elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
 
-                result.data.get() += elem;
+                * (result.data.get()) += elem;
             }
         }
 
