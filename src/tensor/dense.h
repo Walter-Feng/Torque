@@ -134,17 +134,29 @@ public:
     /// \param number the target number (to replace the original one)
     inline
     void modify(const arma::uvec & indices, const T number) {
-        this->data.get()[arma::sum(indices % this->index_table)] = number;
+
+        if(indices.n_elem != this->rank) {
+            throw Error("Rank does not match");
+        }
+
+        if(this->data) {
+            this->data.get()[arma::sum(indices % this->index_table)] = number;
+        } else {
+            throw Error("Tensor not initialized");
+        }
     }
 
     /// get the number from tensor with given indces
     /// \param indices indices for each dimension
     inline
     T query(const arma::uvec & indices) const {
+
+        if(indices.n_elem != this->rank) {
+            throw Error("Rank does not match");
+        }
+
         if(this->data) {
-
             return this->data.get()[arma::sum(indices % this->index_table)];
-
         } else {
             throw Error("Tensor not initialized");
         }
@@ -163,7 +175,7 @@ public:
         const arma::uvec contract_dimension = this->dimension(this_contracting_indices);
         const arma::uvec contract_table = util::generate_index_table(contract_dimension);
 
-        if(!arma::all(contract_dimension - tensor.dimension(this_contracting_indices) == 0)) {
+        if(!arma::all(contract_dimension - tensor.dimension(that_contracting_indices) == 0)) {
             throw Error("The dimensions from two tensors to be contracted do not match");
         }
 
@@ -183,8 +195,11 @@ public:
                 const arma::uvec new_dimension_indices = util::index_to_indices(i, new_dimension_table);
 
                 arma::uvec this_dimension_indices = new_dimension_indices.rows(0, this->rank - contract_dimension.n_elem - 1);
-                arma::uvec that_dimension_indices = new_dimension_indices.rows(this->rank - contract_dimension.n_elem,
-                                                                               result.rank - 1);
+                arma::uvec that_dimension_indices =
+                        this->rank - contract_dimension.n_elem <= result.rank - 1 ?
+                        new_dimension_indices.rows(this->rank - contract_dimension.n_elem, result.rank - 1) :
+                        arma::uvec{};
+
 
                 // It might be that the contracting indices may not be sorted, for example the matrix inner product
                 // of two matrices (A, B) = sum( A % B^T ), where % is the element-wise multiplication
@@ -292,7 +307,7 @@ public:
 
         for(arma::uword i=0; i<total_elem; i++) {
 
-            const arma::uvec new_indices = index_to_indices(i, this->index_table, sort_index);
+            const arma::uvec new_indices = util::index_to_indices(i, this->index_table, sort_index);
 
             new_data_pointer[arma::sum(new_indices(permutation) % new_table)] = data_pointer[i];
         }

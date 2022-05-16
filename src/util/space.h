@@ -9,6 +9,7 @@ namespace util {
 
 arma::uvec generate_index_table(const arma::uvec & dimension);
 arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table);
+arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table, const arma::uvec & sort_index);
 
 }
 }

@@ -139,28 +139,54 @@ TEST_CASE("dense tensor operation") {
 
         const arma::mat ref_A = arma::mat{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}.t();
 
-        const double result = arma::sum(ref_A % ref_A.t());
+        const double result = arma::accu(ref_A % ref_A.t());
 
-        for(arma::uword i=0; i<3; i++) {
-            for(arma::uword j=0; j<3; j++) {
-                CHECK(A_squared.query(arma::uvec{i, j}) == ref_A_squared(i, j));
-            }
-        }
+        CHECK(A_squared.to_number() == result);
     }
 
+    SECTION("tensor-vector contraction") {
+        const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7};
 
-    SECTION("armadillo playground") {
+        const torque::DenseTensor<float> tensor_format(tensor_data.data(), {2, 2, 2});
 
-//        arma::uvec table = {0,1,2,3,4};
-//        std::cout << table.rows(1,3).t() << std::endl;
-//        table.shed_rows(arma::uvec{2,4});
-//        table.insert_rows(2 , 1);
-//        table.insert_rows(4 , 1);
-//
-//        std::cout << arma::uvec{0}.rows(0, 0) << std::endl;
-//        std::cout << table.t() << std::endl;
-//
-//        std::cout << arma::sum(arma::uvec{} % arma::uvec{}) << std::endl;
+        const std::vector<float> vector{1, 2};
+
+        const torque::DenseTensor<float> vector_in_tensor(vector.data(), {2});
+
+        const auto contraction = tensor_format.contract(vector_in_tensor, arma::umat{{0, 0}});
+
+        CHECK(contraction.query({0, 0}) == 2);
+        CHECK(contraction.query({1, 0}) == 8);
+        CHECK(contraction.query({0, 1}) == 14);
+        CHECK(contraction.query({1, 1}) == 20);
+
+        const auto contraction_2 = tensor_format.contract(vector_in_tensor, arma::umat{{1, 0}});
+
+        CHECK(contraction_2.query({0, 0}) == 4);
+        CHECK(contraction_2.query({1, 0}) == 7);
+        CHECK(contraction_2.query({0, 1}) == 16);
+        CHECK(contraction_2.query({1, 1}) == 19);
+
+        const auto contraction_3 = tensor_format.contract(vector_in_tensor, arma::umat{{2, 0}});
+
+        CHECK(contraction_3.query({1, 0}) == 11);
+
+    }
+
+    SECTION("tensor-matrix contraction") {
+        const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+        const torque::DenseTensor<float> tensor_format(tensor_data.data(), {2, 2, 3});
+
+        const std::vector<float> matrix{1, 2, 3, 4};
+
+        const torque::DenseTensor<float> matrix_in_tensor(matrix.data(), {2, 2}); // row vector
+
+        const auto contraction = tensor_format.contract(matrix_in_tensor, arma::umat{{0, 1}, {1, 0}});
+
+        CHECK(contraction.query({0}) == 19);
+        CHECK(contraction.query({1}) == 59);
+        CHECK(contraction.query({2}) == 99);
     }
 
 }
