@@ -1,16 +1,45 @@
-#ifndef TORQUE_DENSE_H
-#define TORQUE_DENSE_H
+#ifndef TORQUE_TENSOR_DENSE_H
+#define TORQUE_TENSOR_DENSE_H
 
 #include <armadillo>
 #include <memory>
+
 #include "error.h"
+#include "util/space.h"
 
 namespace torque {
+
+    inline
+    arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table, const arma::uvec & sort_index) {
+
+        arma::uword temp_i = i;
+        arma::uvec indices(table.n_elem);
+
+        for(arma::uword j = table.n_elem - 1; j > 0; j--) {
+            indices(sort_index(j)) = temp_i / table(sort_index(j));
+            temp_i = temp_i % table(sort_index(j));
+        }
+
+        indices(sort_index(0)) = temp_i;
+
+        return indices;
+    }
 
 template<typename T>
 class DenseTensor
 {
 public:
+
+    /// The rank of the tensor
+    arma::uword rank;
+
+    /// The dimensions at each index of the tensor. The first index is the leading dimension of the
+    /// tensor with stride equal to 1, i.e. difference of 1 for the first index will result in
+    /// neighboring address in the data.
+    arma::uvec dimension;
+
+    /// An intermediate table that helps generating the index for the flattened one-dimensional data
+    arma::uvec index_table;
 
     inline
     explicit DenseTensor(const arma::uvec & dimension) {
@@ -19,18 +48,15 @@ public:
 
         rank = dimension.n_elem;
 
-        arma::uword table_index = 1;
+        if(rank > 0) {
+            this->index_table = util::generate_index_table(dimension);
 
-        this->index_table = arma::uvec(rank);
-
-        for (arma::uword i = 0; i < rank; i++) {
-            this->index_table(i) = table_index;
-            table_index *= dimension(i);
+            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(dimension)));
+            memset(this->data.get(), 0, sizeof(T) * arma::prod(dimension));
+        } else {
+         this->data = std::unique_ptr<T>((T *) malloc(sizeof(T)));
+            memset(this->data.get(), 0, sizeof(T));
         }
-
-        this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(dimension)));
-        memset(this->data.get(), 0, sizeof(T) * arma::prod(dimension));
-
     }
 
     inline
@@ -40,39 +66,40 @@ public:
 
         rank = dimension.n_elem;
 
-        arma::uword table_index = 1;
+        if(rank > 0) {
+            this->index_table = util::generate_index_table(dimension);
 
-        this->index_table = arma::uvec(rank);
+            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(dimension)));
 
-        for (arma::uword i = 0; i < rank; i++) {
-            this->index_table(i) = table_index;
-            table_index *= dimension(i);
-        }
-
-        this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(dimension)));
-
-        if(source_data) {
-            memcpy(this->data.get(), source_data, sizeof(T) * arma::prod(dimension));
+            if(source_data) {
+                memcpy(this->data.get(), source_data, sizeof(T) * arma::prod(dimension));
+            } else {
+                throw Error("Source data not allocated!");
+            }
         } else {
-            throw Error("Source data not allocated!");
+            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(dimension)));
+
+            if(source_data) {
+                memcpy(this->data.get(), source_data, sizeof(T));
+            } else {
+                throw Error("Source data not allocated!");
+            }
         }
+
     }
 
     inline
     explicit DenseTensor(std::unique_ptr<T> && source_data, const arma::uvec & dimension) {
 
+        if(!source_data) {
+            throw Error("Source data not allocated!");
+        }
+
         this->dimension = dimension;
 
         rank = dimension.n_elem;
 
-        arma::uword table_index = 1;
-
-        this->index_table = arma::uvec(rank);
-
-        for (arma::uword i = 0; i < rank; i++) {
-            this->index_table(i) = table_index;
-            table_index *= dimension(i);
-        }
+        this->index_table = util::generate_index_table(dimension);
 
         this->data = source_data;
     }
@@ -82,6 +109,14 @@ public:
         this->rank = tensor.rank;
         this->dimension = tensor.dimension;
         this->index_table = tensor.index_table;
+
+        this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(this->dimension)));
+
+        if(tensor.data) {
+            memcpy(this->data.get(), tensor.data, sizeof(T) * arma::prod(dimension));
+        } else {
+            throw Error("Source data not allocated!");
+        }
     }
 
     inline
@@ -134,14 +169,75 @@ public:
         const arma::uvec that_contracting_indices = contracting_indices.col(1);
 
         const arma::uvec contract_dimension = this->dimension(this_contracting_indices);
+        const arma::uvec contract_table = util::generate_index_table(contract_dimension);
 
         if(!arma::all(contract_dimension - tensor.dimension(this_contracting_indices) == 0)) {
             throw Error("The dimensions from two tensors to be contracted do not match");
         }
 
+        // Prepare dimension for the new tensor
+        arma::uvec this_dimension_copy = this->dimension;
+        arma::uvec that_dimension_copy = tensor.dimension;
+        this_dimension_copy.shed_rows(this_contracting_indices);
+        that_dimension_copy.shed_rows(that_contracting_indices);
+        const arma::uvec new_dimension = arma::join_vert(this_dimension_copy, that_dimension_copy);
+        const arma::uvec new_dimension_table = util::generate_index_table(new_dimension);
 
+        auto result = DenseTensor<std::common_type_t<T, U>>(new_dimension);
 
+        if(result.rank > 0) {
+            for(arma::uword i=0; i<arma::prod(new_dimension); i++) {
 
+                const arma::uvec new_dimension_indices = util::index_to_indices(i, new_dimension_table);
+
+                arma::uvec this_dimension_indices = new_dimension_indices.rows(0, this->rank - contract_dimension.n_elem - 1);
+                arma::uvec that_dimension_indices = new_dimension_indices.rows(this->rank - contract_dimension.n_elem,
+                                                                               result.rank - 1);
+
+                // It might be that the contracting indices may not be sorted, for example the matrix inner product
+                // of two matrices (A, B) = sum( A % B^T ), where % is the element-wise multiplication
+                // To restore the shed indices, we need the sorted contracting indices
+                const arma::uvec sorted_this_contracting_indices = arma::sort(this_contracting_indices);
+                const arma::uvec sorted_that_contracting_indices = arma::sort(that_contracting_indices);
+
+                for(arma::uword k=0; k<sorted_this_contracting_indices.n_elem; k++){
+                    this_dimension_indices.insert_rows(sorted_this_contracting_indices(k), 1);
+                    that_dimension_indices.insert_rows(sorted_that_contracting_indices(k), 1);
+                }
+
+                for(arma::uword j=0; j<arma::prod(contract_dimension); j++){
+                    const arma::uvec contraction_indices = util::index_to_indices(j, contract_table);
+
+                    // assign the summation indices to the original tensor indices
+                    for(arma::uword k=0; k<contraction_indices.n_elem; k++) {
+                        this_dimension_indices(this_contracting_indices(k)) = contraction_indices(k);
+                        that_dimension_indices(that_contracting_indices(k)) = contraction_indices(k);
+                    }
+
+                    assert(this_dimension_indices.n_elem == this->rank);
+                    assert(that_dimension_indices.n_elem == tensor.rank);
+
+                    const T elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
+
+                    result.data.get()[i] += elem;
+                }
+            }
+        } else { // Full contraction, generating a scalar
+            for(arma::uword j=0; j<arma::prod(contract_dimension); j++){
+
+                const arma::uvec contraction_indices = util::index_to_indices(j, contract_table);
+
+                // assign the summation indices to the original tensor indices
+                const arma::uvec this_dimension_indices = contraction_indices(this_contracting_indices);
+                const arma::uvec that_dimension_indices = contraction_indices(that_contracting_indices);
+
+                const T elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
+
+                result.data.get() += elem;
+            }
+        }
+
+        return result;
     }
 
     /// Transposition of the tensors according to the permutation, without changing original data
@@ -195,8 +291,6 @@ public:
 
         std::unique_ptr<T> new_data((T *) malloc(sizeof(T) * total_elem));
 
-        arma::uvec indices(this->rank);
-
         const auto data_pointer = this->data.get();
         const auto new_data_pointer = new_data.get();
 
@@ -206,16 +300,9 @@ public:
 
         for(arma::uword i=0; i<total_elem; i++) {
 
-            arma::uword temp_i = i;
+            const arma::uvec new_indices = index_to_indices(i, this->index_table, sort_index);
 
-            for(arma::uword j = this->rank - 1; j > 0; j--) {
-                indices(sort_index(j)) = temp_i / this->index_table(sort_index(j));
-                temp_i = temp_i % this->index_table(sort_index(j));
-            }
-
-            indices(sort_index(0)) = temp_i;
-
-            new_data_pointer[arma::sum(indices(permutation) % new_table)] = data_pointer[i];
+            new_data_pointer[arma::sum(new_indices(permutation) % new_table)] = data_pointer[i];
         }
 
         return DenseTensor<T>(std::move(new_data_pointer), new_dimension);
@@ -223,21 +310,10 @@ public:
     }
 
 protected:
-    /// The rank of the tensor
-    arma::uword rank;
-
-    /// The dimensions at each index of the tensor. The first index is the leading dimension of the
-    /// tensor with stride equal to 1, i.e. difference of 1 for the first index will result in
-    /// neighboring address in the data.
-    arma::uvec dimension;
-
-    /// An intermediate table that helps generating the index for the flattened one-dimensional data
-    arma::uvec index_table;
-
     /// Stores data
     std::unique_ptr<T> data = nullptr;
 };
 
 }
 
-#endif //TORQUE_DENSE_H
+#endif //TORQUE_TENSOR_DENSE_H

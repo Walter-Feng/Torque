@@ -65,6 +65,8 @@ add_library(torque SHARED
 
         src/tensor/dense.cpp
 
+        src/util/space.cpp
+
         )
 
 
@@ -150,10 +152,14 @@ if(USE_GPU)
                     IMPORTED_IMPLIB "${CUTENSOR_ROOT}/${LIB_DIR}/${CUTENSOR_LIBRARY_DEF}"
                     INTERFACE_INCLUDE_DIRECTORIES "${CUTENSOR_ROOT}/include")
         endif()
+
+        include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include)
+        target_link_libraries(torque cutensor)
+        message("-- cuTENSOR linked.")
     endif()
 
-    include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include)
-    target_link_libraries(torque cutensor)
+
+
 endif()
 
 

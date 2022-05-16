@@ -88,4 +88,31 @@ TEST_CASE("dense tensor operation") {
         CHECK(tensor_another_transpose.query({2, 0, 0}) == 9);
         CHECK(tensor_another_transpose.query({2, 0, 1}) == 11);
     }
+
+    SECTION("scalar") {
+
+        torque::DenseTensor<float> tensor(arma::uvec{});
+
+        CHECK(tensor.rank == 0);
+        CHECK(tensor.query({}) == 0);
+        tensor.modify({}, 1);
+        CHECK(tensor.query({}) == 1);
+
+    }
+
+
+    SECTION("armadillo playground") {
+
+        arma::uvec table = {0,1,2,3,4};
+        std::cout << table.rows(1,3).t() << std::endl;
+        table.shed_rows(arma::uvec{2,4});
+        table.insert_rows(2 , 1);
+        table.insert_rows(4 , 1);
+
+        std::cout << arma::uvec{0}.rows(0, 0) << std::endl;
+        std::cout << table.t() << std::endl;
+
+        std::cout << arma::sum(arma::uvec{} % arma::uvec{}) << std::endl;
+    }
+
 }
