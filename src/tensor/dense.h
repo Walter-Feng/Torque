@@ -9,22 +9,6 @@
 
 namespace torque {
 
-    inline
-    arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table, const arma::uvec & sort_index) {
-
-        arma::uword temp_i = i;
-        arma::uvec indices(table.n_elem);
-
-        for(arma::uword j = table.n_elem - 1; j > 0; j--) {
-            indices(sort_index(j)) = temp_i / table(sort_index(j));
-            temp_i = temp_i % table(sort_index(j));
-        }
-
-        indices(sort_index(0)) = temp_i;
-
-        return indices;
-    }
-
 template<typename T>
 class DenseTensor
 {
