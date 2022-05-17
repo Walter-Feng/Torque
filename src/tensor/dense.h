@@ -61,7 +61,7 @@ public:
                 throw Error("Source data not allocated!");
             }
         } else {
-            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(dimension)));
+            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T)));
 
             if(source_data) {
                 memcpy(this->data.get(), source_data, sizeof(T));
@@ -146,7 +146,7 @@ public:
         }
     }
 
-    /// get the number from tensor with given indces
+    /// get the number from tensor with given indices
     /// \param indices indices for each dimension
     inline
     T query(const arma::uvec & indices) const {

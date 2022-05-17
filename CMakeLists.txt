@@ -65,6 +65,8 @@ add_library(torque SHARED
 
         src/tensor/dense.cpp
         src/tensor/block_sparse.cpp
+        src/tensor/sparse.cpp
+
         src/util/space.cpp
 
         )

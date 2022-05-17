@@ -189,4 +189,11 @@ TEST_CASE("dense tensor operation") {
         CHECK(contraction.query({2}) == 99);
     }
 
+    SECTION("playground") {
+      arma::uvec test_vector{0,1,2,3,5};
+      std::cout << arma::uvec(arma::find(test_vector == 4)).n_elem << std::endl;
+      test_vector.insert_rows(5, 1);
+      test_vector(5) = 4;
+      std::cout << test_vector;
+    }
 }
