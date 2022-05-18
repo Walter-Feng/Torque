@@ -224,7 +224,8 @@ public:
                     assert(this_dimension_indices.n_elem == this->rank);
                     assert(that_dimension_indices.n_elem == tensor.rank);
 
-                    const T elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
+                    const std::common_type_t<T, U>
+                            elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
 
                     result.data.get()[i] += elem;
                 }
@@ -238,7 +239,8 @@ public:
                 const arma::uvec this_dimension_indices = contraction_indices(this_contracting_indices);
                 const arma::uvec that_dimension_indices = contraction_indices(that_contracting_indices);
 
-                const T elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
+                const std::common_type_t<T, U>
+                        elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
 
                 * (result.data.get()) += elem;
             }

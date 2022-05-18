@@ -75,7 +75,7 @@ public:
 
   inline
   explicit SparseTensor(std::unique_ptr<T> && source_data,
-                        arma::umat && index_table,
+                        const arma::uvec & index_table,
                         const arma::uvec & dimension) {
 
     if(!source_data) {
@@ -174,7 +174,7 @@ public:
               if (number == 0) {
                   // Nothing happens
               } else {
-                  this->indices.insert_rows(this->indices.n_elem);
+                  this->indices.insert_rows(this->indices.n_elem, 1);
                   this->indices(this->indices.n_elem - 1) = new_index;
                   this->data.get() = realloc(this->data.get(), this->indices.n_elem * sizeof(T));
               }
@@ -233,63 +233,67 @@ public:
     const arma::uvec new_dimension = arma::join_vert(this_dimension_copy, that_dimension_copy);
     const arma::uvec new_dimension_table = util::generate_index_table(new_dimension);
 
+    const arma::uword result_rank = this->rank - contract_dimension.n_elem;
 
-    if(result.rank > 0) {
+    if(result_rank > 0) {
+        std::vector<std::common_type_t<T, U>> raw_result_data;
+        std::vector<arma::uword> raw_result_indices;
+
       for(arma::uword i=0; i<indices.n_elem; i++) {
+          const arma::uvec this_indices = util::index_to_indices(this->indices(i), this->index_table);
 
-        const arma::uvec new_dimension_indices = util::index_to_indices(i, new_dimension_table);
+        for(arma::uword j=0; j<tensor.indices.n_elem; j++){
+          const arma::uvec that_indices = util::index_to_indices(tensor.indices(j), tensor.index_table);
 
-        arma::uvec this_dimension_indices = new_dimension_indices.rows(0, this->rank - contract_dimension.n_elem - 1);
-        arma::uvec that_dimension_indices =
-            this->rank - contract_dimension.n_elem <= result.rank - 1 ?
-            new_dimension_indices.rows(this->rank - contract_dimension.n_elem, result.rank - 1) :
-            arma::uvec{};
-
-
-        // It might be that the contracting indices may not be sorted, for example the matrix inner product
-        // of two matrices (A, B) = sum( A % B^T ), where % is the element-wise multiplication
-        // To restore the shed indices, we need the sorted contracting indices
-        const arma::uvec sorted_this_contracting_indices = arma::sort(this_contracting_indices);
-        const arma::uvec sorted_that_contracting_indices = arma::sort(that_contracting_indices);
-
-        for(arma::uword k=0; k<sorted_this_contracting_indices.n_elem; k++){
-          this_dimension_indices.insert_rows(sorted_this_contracting_indices(k), 1);
-          that_dimension_indices.insert_rows(sorted_that_contracting_indices(k), 1);
-        }
-
-        for(arma::uword j=0; j<arma::prod(contract_dimension); j++){
-          const arma::uvec contraction_indices = util::index_to_indices(j, contract_table);
-
-          // assign the summation indices to the original tensor indices
-          for(arma::uword k=0; k<contraction_indices.n_elem; k++) {
-            this_dimension_indices(this_contracting_indices(k)) = contraction_indices(k);
-            that_dimension_indices(that_contracting_indices(k)) = contraction_indices(k);
+          if(arma::all(this_indices(this_contracting_indices) == that_indices(that_contracting_indices))) {
+              raw_result_data.push_back(this->data.get()[i] * tensor.data.get()[j]);
           }
 
-          assert(this_dimension_indices.n_elem == this->rank);
-          assert(that_dimension_indices.n_elem == tensor.rank);
+          // Generate the new indices (i.e. in new tensor)
+          arma::uvec this_indices_copy = this_indices;
+          arma::uvec that_indices_copy = that_indices;
+          this_indices_copy.shed_rows(this_contracting_indices);
+          that_indices_copy.shed_rows(that_contracting_indices);
 
-          const T elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
-
-          result.data.get()[i] += elem;
+          const arma::uvec new_indices = arma::join_vert(this_indices_copy, that_indices_copy);
+          raw_result_indices.push_back(arma::sum(new_indices % new_dimension_table));
         }
+      } // raw multiplication of elements finished
+
+      // there might be elements with the same indices in new tensor which need to be merged
+
+      const arma::uvec unique_indices = arma::unique(arma::uvec(raw_result_indices));
+
+      std::unique_ptr<std::common_type_t<T, U>>
+        refined_data((std::common_type_t<T, U> *) calloc(unique_indices.n_elem,
+                                                         sizeof(std::common_type_t<T, U>)));
+      for(size_t i=0; i<raw_result_indices.size(); i++) {
+          const arma::uvec index = arma::find(unique_indices == raw_result_indices[i]);
+          assert(index.n_elem == 1);
+          refined_data.get()[index(0)] += raw_result_data[i];
       }
+
+      return SparseTensor<std::common_type_t<T, U>>(std::move(refined_data), new_dimension_table, new_dimension);
+
     } else { // Full contraction, generating a scalar
-      for(arma::uword j=0; j<arma::prod(contract_dimension); j++){
 
-        const arma::uvec contraction_indices = util::index_to_indices(j, contract_table);
+        std::common_type_t<T,U> result = 0;
 
-        // assign the summation indices to the original tensor indices
-        const arma::uvec this_dimension_indices = contraction_indices(this_contracting_indices);
-        const arma::uvec that_dimension_indices = contraction_indices(that_contracting_indices);
+        for(arma::uword i=0; i<indices.n_elem; i++) {
+            const arma::uvec this_indices = util::index_to_indices(this->indices(i), this->index_table);
 
-        const T elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
+            for(arma::uword j=0; j<tensor.indices.n_elem; j++){
+                const arma::uvec that_indices = util::index_to_indices(tensor.indices(j), tensor.index_table);
 
-        * (result.data.get()) += elem;
+                if(arma::all(this_indices(this_contracting_indices) == that_indices(that_contracting_indices))) {
+                    result += this->data.get()[i] * tensor.data.get()[j];
+                }
+            }
+        }
+
+        return SparseTensor<std::common_type_t<T, U>>(&result, arma::uvec{}, arma::uvec{});
+
       }
-    }
-
-    return result;
   }
 
   /// Transposition of the tensors according to the permutation, without changing original data
