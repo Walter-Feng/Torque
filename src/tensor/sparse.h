@@ -52,6 +52,10 @@ public:
     if(rank > 0) {
       this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * indices.n_elem));
 
+        if(!this->data) {
+            throw Error("Memory initialization failed");
+        }
+
       if(source_data) {
         memcpy(this->data.get(), source_data, sizeof(T) * indices.n_elem);
       } else {
@@ -82,7 +86,7 @@ public:
 
     rank = dimension.n_elem;
 
-    this->index_table = util::generate_index_table(dimension);
+    this->index_table = index_table;
 
     this->data = source_data;
   }
@@ -92,11 +96,16 @@ public:
     this->rank = tensor.rank;
     this->dimension = tensor.dimension;
     this->index_table = tensor.index_table;
+    this->indices = tensor.indices;
 
-    this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(this->dimension)));
+    this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * tensor.indices.n_elem));
+
+    if(!this->data) {
+        throw Error("Memory initialization failed");
+    }
 
     if(tensor.data) {
-      memcpy(this->data.get(), tensor.data.get(), sizeof(T) * arma::prod(dimension));
+      memcpy(this->data.get(), tensor.data.get(), sizeof(T) * tensor.indices.n_elem);
     } else {
       throw Error("Source data not allocated!");
     }
@@ -118,12 +127,13 @@ public:
   /// Initialization of the data, with proper memory allocation and memory copy
   inline
   void initialize(const T * source_data, const arma::uvec & indices) {
-    if(!this->data) {
-      throw Error("data not allocated!");
-    }
+
+    this->data.release();
+
+    this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * indices.n_elem));
     if(source_data) {
       this->indices = indices;
-      memcpy(this->data.get(), source_data, sizeof(T) * arma::prod(indices.n_cols));
+      memcpy(this->data.get(), source_data, sizeof(T) * indices.n_elem);
     } else {
       throw Error("Source data not allocated!");
     }
@@ -135,44 +145,43 @@ public:
   inline
   void modify(const arma::uvec & indices, const T number) {
 
-    if(indices.n_elem != this->rank) {
-      throw Error("Rank does not match");
-    }
-
-    if(this->data) {
-      const arma::uvec new_index = indices % this->index_table;
-      arma::uvec found_index = arma::find(this->indices == new_index);
-      if(found_index.n_elem) {
-        assert(found_index.n_elem == 1);
-
-        if(number == 0) {
-
-          // Because we are doing sparse tensor,
-          // we would like to remove this element from the search list.
-          this->data.get()[found_index(0)] =
-              this->data.get()[this->indices.n_elem - 1];
-
-          this->indices(found_index(0)) = this->indices(this->indices.n_elem - 1);
-
-          // Remove the tail, as we have copied the tail element to the
-          // shed element specified by indices
-          this->indices.shed_row(this->indices.n_elem - 1);
-          this->data.get() = realloc(this->data.get(), this->indices.n_elem * sizeof(T));
-        } else {
-          this->data.get()[found_index(0)] = number;
-        }
-      } else {
-        if(number == 0) {
-          // Nothing happens
-        } else {
-          this->indices.insert_rows(this->indices.n_elem);
-          this->indices(this->indices.n_elem - 1) = new_index;
-          this->data.get() = realloc(this->data.get(), this->indices.n_elem * sizeof(T));
-        }
+      if (indices.n_elem != this->rank) {
+          throw Error("Rank does not match");
       }
-    } else {
-      throw Error("Tensor not initialized");
-    }
+      if (this->data) {
+          const arma::uvec new_index = indices % this->index_table;
+          arma::uvec found_index = arma::find(this->indices == new_index);
+          if (found_index.n_elem) {
+              assert(found_index.n_elem == 1);
+
+              if (number == 0) {
+
+                  // Because we are doing sparse tensor,
+                  // we would like to remove this element from the search list.
+                  this->data.get()[found_index(0)] =
+                          this->data.get()[this->indices.n_elem - 1];
+
+                  this->indices(found_index(0)) = this->indices(this->indices.n_elem - 1);
+
+                  // Remove the tail, as we have copied the tail element to the
+                  // shed element specified by indices
+                  this->indices.shed_row(this->indices.n_elem - 1);
+                  this->data.get() = realloc(this->data.get(), this->indices.n_elem * sizeof(T));
+              } else {
+                  this->data.get()[found_index(0)] = number;
+              }
+          } else {
+              if (number == 0) {
+                  // Nothing happens
+              } else {
+                  this->indices.insert_rows(this->indices.n_elem);
+                  this->indices(this->indices.n_elem - 1) = new_index;
+                  this->data.get() = realloc(this->data.get(), this->indices.n_elem * sizeof(T));
+              }
+          }
+      } else {
+          throw Error("Tensor not initialized");
+      }
   }
 
   /// get the number from tensor with given indices
@@ -185,7 +194,15 @@ public:
     }
 
     if(this->data) {
-      return this->data.get()[arma::sum(indices % this->index_table)];
+      const arma::uvec new_index = indices % this->index_table;
+      arma::uvec found_index = arma::find(this->indices == new_index);
+      if(found_index.n_elem) {
+          assert(found_index.n_elem == 1);
+
+          return this->data.get()[found_index(0)];
+      } else {
+          return 0;
+      }
     } else {
       throw Error("Tensor not initialized");
     }
@@ -216,10 +233,9 @@ public:
     const arma::uvec new_dimension = arma::join_vert(this_dimension_copy, that_dimension_copy);
     const arma::uvec new_dimension_table = util::generate_index_table(new_dimension);
 
-    auto result = SparseTensor<std::common_type_t<T, U>>(new_dimension);
 
     if(result.rank > 0) {
-      for(arma::uword i=0; i<arma::prod(new_dimension); i++) {
+      for(arma::uword i=0; i<indices.n_elem; i++) {
 
         const arma::uvec new_dimension_indices = util::index_to_indices(i, new_dimension_table);
 
