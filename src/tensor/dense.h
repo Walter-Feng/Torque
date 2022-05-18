@@ -314,7 +314,7 @@ public:
             new_data_pointer[arma::sum(new_indices(permutation) % new_table)] = data_pointer[i];
         }
 
-        return DenseTensor<T>(std::move(new_data_pointer), new_dimension);
+        return DenseTensor<T>(std::move(new_data), new_dimension);
 
     }
 

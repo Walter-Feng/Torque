@@ -23,23 +23,14 @@ arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table) {
     arma::uword temp_i = i;
     arma::uvec indices(table.n_elem);
 
-    if(table.is_sorted()) {
-        for(arma::uword j = table.n_elem - 1; j > 0; j--) {
-            indices(j) = temp_i / table(j);
-            temp_i = temp_i % table(j);
-        }
-
-        indices(0) = temp_i;
-    } else {
-        const arma::uvec sorted_index_table = arma::sort_index(table);
-
-        for(arma::uword j = table.n_elem - 1; j > 0; j--) {
-            indices(sorted_index_table(j)) = temp_i / table(sorted_index_table(j));
-            temp_i = temp_i % table(sorted_index_table(j));
-        }
-
-        indices(sorted_index_table(0)) = temp_i;
+    assert(table.is_sorted());
+    
+    for(arma::uword j = table.n_elem - 1; j > 0; j--) {
+        indices(j) = temp_i / table(j);
+        temp_i = temp_i % table(j);
     }
+
+    indices(0) = temp_i;
 
     return indices;
 }

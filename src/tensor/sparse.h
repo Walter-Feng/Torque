@@ -240,10 +240,12 @@ public:
         std::vector<arma::uword> raw_result_indices;
 
       for(arma::uword i=0; i<indices.n_elem; i++) {
-          const arma::uvec this_indices = util::index_to_indices(this->indices(i), this->index_table);
+          const arma::uvec this_sort_index = arma::sort_index(this->index_table);
+          const arma::uvec this_indices = util::index_to_indices(this->indices(i), this->index_table, this_sort_index);
 
         for(arma::uword j=0; j<tensor.indices.n_elem; j++){
-          const arma::uvec that_indices = util::index_to_indices(tensor.indices(j), tensor.index_table);
+            const arma::uvec that_sort_index = arma::sort_index(this->index_table);
+          const arma::uvec that_indices = util::index_to_indices(tensor.indices(j), tensor.index_table, that_sort_index);
 
           if(arma::all(this_indices(this_contracting_indices) == that_indices(that_contracting_indices))) {
               raw_result_data.push_back(this->data.get()[i] * tensor.data.get()[j]);
@@ -309,19 +311,6 @@ public:
 
   }
 
-
-  /// Whether this tensor is sorted, i.e. has not been soft transposed.
-  inline
-  bool is_sorted() const {
-    return this->index_table.is_sorted();
-  }
-
-  /// Whether this tensor has stride of the leading dimension equal to 1.
-  inline
-  bool has_leading_dimension() const {
-    return this->index_table(1) == 0;
-  }
-
   /// Transposition of the tensors according to the permutation, creating new object with new alignment of data.
   /// This helps keeping the stride of leading dimension equal to 1.
   /// \param permutation the permutation indices
@@ -334,34 +323,26 @@ public:
 
     const arma::uvec new_dimension = this->dimension(permutation);
 
-    arma::uvec new_table(rank);
+    const arma::uvec new_table = util::generate_index_table(new_dimension);
 
-    arma::uword table_index = 1;
-
-    for (arma::uword i = 0; i < rank; i++) {
-      new_table(i) = table_index;
-      table_index *= new_dimension(i);
-    }
-
-    const arma::uword total_elem = arma::prod(this->dimension);
+    const arma::uword total_elem = this->indices.n_elem;
 
     std::unique_ptr<T> new_data((T *) malloc(sizeof(T) * total_elem));
 
-    const auto data_pointer = this->data.get();
-    const auto new_data_pointer = new_data.get();
-
+    memcpy(new_data.get(), this->data.get(), sizeof(T) * total_elem);
     // It is possible that this tensor has been soft transposed, i.e.
     // the index table may not be in sorted order.
     const arma::uvec sort_index = arma::sort_index(this->index_table);
+    arma::uvec new_indices(this->indices.n_elem);
 
     for(arma::uword i=0; i<total_elem; i++) {
 
-      const arma::uvec new_indices = util::index_to_indices(i, this->index_table, sort_index);
+      const arma::uvec old_indices = util::index_to_indices(i, this->index_table, sort_index);
+      new_indices(i) = arma::sum(old_indices(permutation) % new_table);
 
-      new_data_pointer[arma::sum(new_indices(permutation) % new_table)] = data_pointer[i];
     }
 
-    return SparseTensor<T>(std::move(new_data_pointer), new_dimension);
+    return SparseTensor<T>(std::move(new_data), new_indices, new_dimension);
 
   }
 
