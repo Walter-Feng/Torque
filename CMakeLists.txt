@@ -171,11 +171,12 @@ endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test)
 
-add_executable(test_tensor_dense
+add_executable(test_tensor
             test/dense_tensor_test.cpp
+            test/sparse_tensor_test.cpp
         )
 
-target_link_libraries(test_tensor_dense catch2 torque)
+target_link_libraries(test_tensor catch2 torque)
 
 add_test(NAME UNITTEST_core
-        COMMAND bin/test_tensor_dense)
+        COMMAND bin/test_tensor)

@@ -31,6 +31,7 @@ public:
   explicit SparseTensor(const arma::uvec & dimension) {
 
     this->dimension = dimension;
+    this->index_table = util::generate_index_table(dimension);
 
     rank = dimension.n_elem;
 
@@ -41,11 +42,12 @@ public:
   inline
   explicit SparseTensor(const T * source_data,
                         const arma::uvec & indices,
+                        const arma::uvec & index_table,
                         const arma::uvec & dimension) {
 
     this->dimension = dimension;
     this->indices = indices;
-    this->index_table = util::generate_index_table(dimension);
+    this->index_table = index_table;
 
     rank = dimension.n_elem;
 
@@ -75,6 +77,7 @@ public:
 
   inline
   explicit SparseTensor(std::unique_ptr<T> && source_data,
+                        const arma::uvec & indices,
                         const arma::uvec & index_table,
                         const arma::uvec & dimension) {
 
@@ -86,9 +89,11 @@ public:
 
     rank = dimension.n_elem;
 
+    this->indices = indices;
+
     this->index_table = index_table;
 
-    this->data = source_data;
+    this->data = std::move(source_data);
   }
 
   inline
@@ -143,65 +148,77 @@ public:
   /// \param indices indices for each dimension
   /// \param number the target number (to replace the original one)
   inline
-  void modify(const arma::uvec & indices, const T number) {
+  void modify(const arma::uvec & modify_indices, const T number) {
 
-      if (indices.n_elem != this->rank) {
+      if (modify_indices.n_elem != this->rank) {
           throw Error("Rank does not match");
       }
       if (this->data) {
-          const arma::uvec new_index = indices % this->index_table;
+        if(this->rank == 0) {
+          this->data.get()[0] = number;
+        } else {
+          const arma::uword new_index = arma::sum(modify_indices % this->index_table);
           arma::uvec found_index = arma::find(this->indices == new_index);
           if (found_index.n_elem) {
-              assert(found_index.n_elem == 1);
+            assert(found_index.n_elem == 1);
 
-              if (number == 0) {
+            if (number == 0) {
 
-                  // Because we are doing sparse tensor,
-                  // we would like to remove this element from the search list.
-                  this->data.get()[found_index(0)] =
-                          this->data.get()[this->indices.n_elem - 1];
+              // Because we are doing sparse tensor,
+              // we would like to remove this element from the search list.
+              this->data.get()[found_index(0)] =
+                  this->data.get()[this->indices.n_elem - 1];
 
-                  this->indices(found_index(0)) = this->indices(this->indices.n_elem - 1);
+              this->indices(found_index(0)) = this->indices(this->indices.n_elem - 1);
 
-                  // Remove the tail, as we have copied the tail element to the
-                  // shed element specified by indices
-                  this->indices.shed_row(this->indices.n_elem - 1);
-                  this->data.get() = realloc(this->data.get(), this->indices.n_elem * sizeof(T));
-              } else {
-                  this->data.get()[found_index(0)] = number;
-              }
+              // Remove the tail, as we have copied the tail element to the
+              // shed element specified by indices
+              this->indices.shed_row(this->indices.n_elem - 1);
+              this->data = std::unique_ptr<T>((T *)
+                                                  realloc(this->data.get(), this->indices.n_elem * sizeof(T)
+                                                  ));
+            } else {
+              this->data.get()[found_index(0)] = number;
+            }
           } else {
-              if (number == 0) {
-                  // Nothing happens
-              } else {
-                  this->indices.insert_rows(this->indices.n_elem, 1);
-                  this->indices(this->indices.n_elem - 1) = new_index;
-                  this->data.get() = realloc(this->data.get(), this->indices.n_elem * sizeof(T));
-              }
+            if (number == 0) {
+              // Nothing happens
+            } else {
+              this->indices.insert_rows(this->indices.n_elem, 1);
+              this->indices(this->indices.n_elem - 1) = new_index;
+              this->data = std::unique_ptr<T>(
+                  (T *) realloc(this->data.get(), this->indices.n_elem * sizeof(T)));
+            }
           }
+        }
+
       } else {
           throw Error("Tensor not initialized");
       }
   }
 
   /// get the number from tensor with given indices
-  /// \param indices indices for each dimension
+  /// \param query_indices indices for each dimension
   inline
-  T query(const arma::uvec & indices) const {
+  T query(const arma::uvec & query_indices) const {
 
-    if(indices.n_elem != this->rank) {
+    if(query_indices.n_elem != this->rank) {
       throw Error("Rank does not match");
     }
 
     if(this->data) {
-      const arma::uvec new_index = indices % this->index_table;
-      arma::uvec found_index = arma::find(this->indices == new_index);
-      if(found_index.n_elem) {
+      if(this->rank == 0) {
+        return this->data.get()[0];
+      } else {
+        const arma::uword new_index = arma::sum(query_indices % this->index_table);
+        arma::uvec found_index = arma::find(this->indices == new_index);
+        if(found_index.n_elem) {
           assert(found_index.n_elem == 1);
 
           return this->data.get()[found_index(0)];
-      } else {
+        } else {
           return 0;
+        }
       }
     } else {
       throw Error("Tensor not initialized");
@@ -249,33 +266,39 @@ public:
 
           if(arma::all(this_indices(this_contracting_indices) == that_indices(that_contracting_indices))) {
               raw_result_data.push_back(this->data.get()[i] * tensor.data.get()[j]);
+
+              // Generate the new indices (i.e. in new tensor)
+              arma::uvec this_indices_copy = this_indices;
+              arma::uvec that_indices_copy = that_indices;
+              this_indices_copy.shed_rows(this_contracting_indices);
+              that_indices_copy.shed_rows(that_contracting_indices);
+
+              const arma::uvec new_indices = arma::join_vert(this_indices_copy, that_indices_copy);
+              raw_result_indices.push_back(arma::sum(new_indices % new_dimension_table));
           }
-
-          // Generate the new indices (i.e. in new tensor)
-          arma::uvec this_indices_copy = this_indices;
-          arma::uvec that_indices_copy = that_indices;
-          this_indices_copy.shed_rows(this_contracting_indices);
-          that_indices_copy.shed_rows(that_contracting_indices);
-
-          const arma::uvec new_indices = arma::join_vert(this_indices_copy, that_indices_copy);
-          raw_result_indices.push_back(arma::sum(new_indices % new_dimension_table));
         }
       } // raw multiplication of elements finished
 
+      assert(raw_result_data.size() == raw_result_indices.size());
       // there might be elements with the same indices in new tensor which need to be merged
 
       const arma::uvec unique_indices = arma::unique(arma::uvec(raw_result_indices));
 
       std::unique_ptr<std::common_type_t<T, U>>
-        refined_data((std::common_type_t<T, U> *) calloc(unique_indices.n_elem,
-                                                         sizeof(std::common_type_t<T, U>)));
+        refined_data((std::common_type_t<T, U> *)
+        calloc(unique_indices.n_elem, sizeof(std::common_type_t<T, U>)));
+
       for(size_t i=0; i<raw_result_indices.size(); i++) {
           const arma::uvec index = arma::find(unique_indices == raw_result_indices[i]);
           assert(index.n_elem == 1);
           refined_data.get()[index(0)] += raw_result_data[i];
       }
 
-      return SparseTensor<std::common_type_t<T, U>>(std::move(refined_data), new_dimension_table, new_dimension);
+      return SparseTensor<std::common_type_t<T, U>>(
+          std::move(refined_data),
+          unique_indices,
+          new_dimension_table,
+          new_dimension);
 
     } else { // Full contraction, generating a scalar
 
@@ -293,7 +316,7 @@ public:
             }
         }
 
-        return SparseTensor<std::common_type_t<T, U>>(&result, arma::uvec{}, arma::uvec{});
+        return SparseTensor<std::common_type_t<T, U>>(&result, arma::uvec{0}, arma::uvec{}, arma::uvec{});
 
       }
   }
@@ -342,7 +365,7 @@ public:
 
     }
 
-    return SparseTensor<T>(std::move(new_data), new_indices, new_dimension);
+    return SparseTensor<T>(std::move(new_data), new_indices, new_table, new_dimension);
 
   }
 

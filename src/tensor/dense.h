@@ -85,7 +85,7 @@ public:
 
         this->index_table = util::generate_index_table(dimension);
 
-        this->data = source_data;
+        this->data = std::move(source_data);
     }
 
     inline
