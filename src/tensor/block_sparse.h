@@ -9,27 +9,26 @@
 
 namespace torque {
 
+/// a tensor object that stores blocks of sub-tensors. The blocks may have intersections.
 template<typename T>
 class BlockSparseTensor
 {
 public:
 
     /// The rank of the tensor
-    arma::uword rank;
+    arma::uword rank{};
 
-    /// The dimensions at each index of the tensor. The first index is the leading dimension of the
-    /// tensor with stride equal to 1, i.e. difference of 1 for the first index will result in
-    /// neighboring address in the data.
+    /// The dimensions at each index of the tensor as a whole.
     arma::uvec dimension;
 
-    /// The dimensions at each index of the tensor. The first index is the leading dimension of the
+    /// The dimensions at each index of the tensor for each block. The first index is the leading dimension of the
     /// tensor with stride equal to 1, i.e. difference of 1 for the first index will result in
     /// neighboring address in the data.
     arma::umat blocks_dimension;
 
     /// Intermediate tables that helps generating the index for the flattened one-dimensional data of each block,
     /// each col stores one index table
-    arma::umat index_table;
+    arma::umat index_tables;
 
     /// The indices of initial element from the blocks. The indices are stored
     /// column-wise, i.e. each column stores one index set for a block.
@@ -43,13 +42,20 @@ public:
     /// e.g. for a dense matrix the end dimensions are (n_rows - 1 , n_cols - 1)
     arma::umat end_points;
 
-    /// The spans in each dimension for different blocks.
-    arma::umat spans;
+    /// The number of elements for each block
+    arma::uvec block_n_elem;
+
+    /// The position of first element of the blocks.
+    arma::uvec block_offsets;
 
     inline
     explicit BlockSparseTensor(const arma::uvec & dimension) {
 
         this->dimension = dimension;
+
+        this->blocks_dimension = arma::zeros(dimension.n_elem, 1);
+        this->block_n_elem = arma::prod(this->blocks_dimension);
+        this->block_offsets = util::nest_sum(this->block_n_elem);
 
         rank = dimension.n_elem;
 
@@ -63,23 +69,36 @@ public:
                                const arma::umat & end_points,
                                const arma::uvec & total_dimension) {
 
-        this->dimension = total_dimension;
-        this->blocks_dimension = blocks_dimension;
-
         rank = total_dimension.n_elem;
 
-        if(rank > 0) {
-            this->index_table = util::generate_index_table(dimension);
+        this->dimension = total_dimension;
 
-            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(dimension)));
+
+
+        if(rank > 0) {
+            this->begin_points = begin_points;
+            this->end_points = end_points;
+
+            const auto n_blocks = begin_points.n_cols;
+            this->blocks_dimension = end_points - begin_points + arma::ones<arma::uvec>(arma::size(begin_points));
+
+            this->block_n_elem = arma::prod(this->blocks_dimension).t();
+            this->block_offsets = util::nest_sum(this->block_n_elem);
+
+            this->index_tables = arma::umat(arma::size(begin_points));
+            for(arma::uword i=0; i<n_blocks; i++) {
+                this->index_tables.col(i) = util::generate_index_table(this->blocks_dimension.col(i));
+            }
+
+            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::sum(block_n_elem)));
 
             if(source_data) {
-                memcpy(this->data.get(), source_data, sizeof(T) * arma::prod(dimension));
+                memcpy(this->data.get(), source_data, sizeof(T) * arma::sum(block_n_elem));
             } else {
                 throw Error("Source data not allocated!");
             }
         } else {
-            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(dimension)));
+            this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::sum(block_n_elem)));
 
             if(source_data) {
                 memcpy(this->data.get(), source_data, sizeof(T));
@@ -91,7 +110,8 @@ public:
     }
 
     inline
-    explicit BlockSparseTensor(std::unique_ptr<T> && source_data, const arma::uvec & dimension) {
+    explicit BlockSparseTensor(std::unique_ptr<T> && source_data, const arma::umat & begin_points,
+                               const arma::umat & end_points, const arma::uvec & dimension) {
 
         if(!source_data) {
             throw Error("Source data not allocated!");
@@ -101,21 +121,40 @@ public:
 
         rank = dimension.n_elem;
 
-        this->index_table = util::generate_index_table(dimension);
+        this->begin_points = begin_points;
+        this->end_points = end_points;
 
-        this->data = source_data;
+        const auto n_blocks = begin_points.n_cols;
+        this->blocks_dimension = end_points - begin_points + arma::ones<arma::uvec>(arma::size(begin_points));
+
+        this->block_n_elem = arma::prod(this->blocks_dimension).t();
+        this->block_offsets = util::nest_sum(this->block_n_elem);
+
+        this->index_tables = arma::umat(arma::size(begin_points));
+        for(arma::uword i=0; i<n_blocks; i++) {
+            this->index_tables.col(i) = util::generate_index_table(this->blocks_dimension.col(i));
+        }
+
+        this->data = std::move(source_data);
     }
 
     inline
     BlockSparseTensor(const BlockSparseTensor & tensor) {
         this->rank = tensor.rank;
         this->dimension = tensor.dimension;
-        this->index_table = tensor.index_table;
+        this->blocks_dimension = tensor.blocks_dimension;
+        this->begin_points = tensor.begin_points;
+        this->end_points = tensor.end_points;
+        this->block_n_elem = tensor.block_n_elem;
+        this->block_offsets = tensor.block_offsets;
+        this->index_tables = tensor.index_tables;
 
-        this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * arma::prod(this->dimension)));
+        const arma::uword n_data = arma::sum(arma::prod(this->blocks_dimension));
+
+        this->data = std::unique_ptr<T>((T *) malloc(sizeof(T) * n_data));
 
         if(tensor.data) {
-            memcpy(this->data.get(), tensor.data.get(), sizeof(T) * arma::prod(dimension));
+            memcpy(this->data.get(), tensor.data.get(), sizeof(T) * n_data);
         } else {
             throw Error("Source data not allocated!");
         }
@@ -147,6 +186,26 @@ public:
         }
     }
 
+    inline
+    void append_block(const T * source_data,
+                      const arma::uvec & begin_point,
+                      const arma::uvec & end_point,
+                      const arma::uvec & index_table) {
+
+        this->begin_points = arma::join_horiz(this->begin_points, begin_point);
+        this->end_points = arma::join_horiz(this->end_points, end_point);
+
+        const arma::uvec block_dimension = end_point - begin_point + arma::ones<arma::uvec>(arma::size(begin_point));
+        const arma::uword n_elem = arma::prod(block_dimension);
+
+        this->blocks_dimension = arma::join_horiz(this->blocks_dimension, block_dimension);
+        this->block_n_elem = arma::join_vert(this->block_n_elem, arma::uvec{n_elem});
+        this->index_tables = arma::join_horiz(this->index_tables, index_table);
+        this->block_offsets = arma::join_vert(this->block_offsets, arma::uvec{arma::sum(this->block_offsets)});
+
+        this->data = std::unique_ptr<T>((T *)realloc(this->data.get(), n_elem * sizeof(T)));
+    }
+
     /// Modify a number in the tensor
     /// \param indices indices for each dimension
     /// \param number the target number (to replace the original one)
@@ -158,7 +217,8 @@ public:
         }
 
         if(this->data) {
-            this->data.get()[arma::sum(indices % this->index_table)] = number;
+            const arma::uvec in_range = util::in_range(indices, this->begin_points, this->end_points);
+
         } else {
             throw Error("Tensor not initialized");
         }
@@ -174,7 +234,21 @@ public:
         }
 
         if(this->data) {
-            return this->data.get()[arma::sum(indices % this->index_table)];
+            const arma::uvec in_range = util::in_range(indices, this->begin_points, this->end_points);
+            if(in_range.n_elem) {
+                T temp = 0;
+                for(arma::uword i=0; i<in_range.n_elem; i++) {
+
+                    const arma::uword block_index = in_range(i);
+
+                    temp += this->data.get()[block_offsets(i) + arma::sum(indices % this->index_tables.col(block_index))];
+                }
+
+                return temp;
+            } else {
+                return 0;
+            }
+
         } else {
             throw Error("Tensor not initialized");
         }
@@ -273,7 +347,7 @@ public:
         if(permutation.n_elem != rank) {
             throw Error("The number of permutation does not match the rank of tensor");
         }
-        this->index_table = this->index_table(permutation);
+        this->index_tables = this->index_tables(permutation);
         this->dimension = this->dimension(permutation);
 
     }
@@ -282,13 +356,13 @@ public:
     /// Whether this tensor is sorted, i.e. has not been soft transposed.
     inline
     bool is_sorted() const {
-        return this->index_table.is_sorted();
+        return this->index_tables.is_sorted();
     }
 
     /// Whether this tensor has stride of the leading dimension equal to 1.
     inline
     bool has_leading_dimension() const {
-        return this->index_table(1) == 0;
+        return this->index_tables(1) == 0;
     }
 
     /// Transposition of the tensors according to the permutation, creating new object with new alignment of data.
@@ -321,11 +395,11 @@ public:
 
         // It is possible that this tensor has been soft transposed, i.e.
         // the index table may not be in sorted order.
-        const arma::uvec sort_index = arma::sort_index(this->index_table);
+        const arma::uvec sort_index = arma::sort_index(this->index_tables);
 
         for(arma::uword i=0; i<total_elem; i++) {
 
-            const arma::uvec new_indices = util::index_to_indices(i, this->index_table, sort_index);
+            const arma::uvec new_indices = util::index_to_indices(i, this->index_tables, sort_index);
 
             new_data_pointer[arma::sum(new_indices(permutation) % new_table)] = data_pointer[i];
         }

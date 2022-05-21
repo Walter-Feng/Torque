@@ -1,4 +1,4 @@
-#include "space.h"
+    #include "space.h"
 
 namespace torque {
 namespace util {
@@ -35,7 +35,7 @@ arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table) {
     return indices;
 }
 
-    arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table, const arma::uvec & sort_index) {
+arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table, const arma::uvec & sort_index) {
 
     arma::uword temp_i = i;
     arma::uvec indices(table.n_elem);
@@ -49,5 +49,21 @@ arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table) {
 
     return indices;
 }
+
+
+arma::uvec in_range(const arma::uvec & indices, const arma::umat & begin_points, const arma::umat & end_points) {
+
+    assert(begin_points.n_cols == end_points.n_cols);
+
+    arma::Col<int> true_false_list(begin_points.n_cols);
+
+    for(arma::uword i=0; i<begin_points.n_cols; i++) {
+        true_false_list(i) = arma::all(indices >= begin_points.col(i))
+                && arma::all(indices <= end_points.col(i));
+    }
+    return arma::find(true_false_list != 0);
+}
+
+
 }
 }

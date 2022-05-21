@@ -174,6 +174,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test)
 add_executable(test_tensor
             test/dense_tensor_test.cpp
             test/sparse_tensor_test.cpp
+            test/block_sparse_tensor_test.cpp
         )
 
 target_link_libraries(test_tensor catch2 torque)
