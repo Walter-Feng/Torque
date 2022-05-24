@@ -13,15 +13,21 @@ SECTION("block sparse matrix initialization") {
 
         const arma::uvec dimension = {4, 3}; // 4x3 matrix
 
-        torque::BlockSparseTensor<float> tensor(a.data(), arma::uvec{0, 0}, arma::uvec{1, 1}, dimension);
+        torque::BlockSparseTensor<float> tensor(a.data(), arma::uvec{1, 1}, arma::uvec{2, 2}, dimension);
 
-        CHECK(tensor.query({1,1}) == 4);
+        CHECK(tensor.query({1,1}) == 1);
+        CHECK(tensor.query({2, 2}) == 4);
+        CHECK(tensor.query({3, 2}) == 0);
 
-        //  1  5  9
-        //  2  6 10
-        //  3  7 11
-        //  4  8 12
+        tensor.modify({2, 2}, 0);
+        CHECK(tensor.query({2, 2}) == 0);
 
+
+        tensor.modify({3, 2}, 5);
+        CHECK(tensor.query({3, 2}) == 5);
+
+        tensor.append_block(a.data(), {0, 0}, {1, 1}, {1, 2});
+        CHECK(tensor.query({1, 1}) == 5);
 
 }
 //

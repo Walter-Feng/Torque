@@ -174,9 +174,12 @@ public:
               // Remove the tail, as we have copied the tail element to the
               // shed element specified by indices
               this->indices.shed_row(this->indices.n_elem - 1);
-              this->data = std::unique_ptr<T>((T *)
-                                                  realloc(this->data.get(), this->indices.n_elem * sizeof(T)
-                                                  ));
+
+              T * ptr_new = (T *)realloc(this->data.get(),
+                                         this->indices.n_elem * sizeof(T));
+
+              this->data.release();
+              this->data.reset(ptr_new);
             } else {
               this->data.get()[found_index(0)] = number;
             }
@@ -186,8 +189,13 @@ public:
             } else {
               this->indices.insert_rows(this->indices.n_elem, 1);
               this->indices(this->indices.n_elem - 1) = new_index;
-              this->data = std::unique_ptr<T>(
-                  (T *) realloc(this->data.get(), this->indices.n_elem * sizeof(T)));
+
+              T * ptr_new = (T *)realloc(this->data.get(),
+                                         this->indices.n_elem
+                                         * sizeof(T));
+
+              this->data.release();
+              this->data.reset(ptr_new);
             }
           }
         }

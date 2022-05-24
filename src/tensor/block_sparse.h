@@ -16,7 +16,7 @@ class BlockSparseTensor
 public:
 
     /// The rank of the tensor
-    arma::uword rank{};
+    arma::uword rank;
 
     /// The dimensions at each index of the tensor as a whole.
     arma::uvec dimension;
@@ -195,15 +195,25 @@ public:
         this->begin_points = arma::join_horiz(this->begin_points, begin_point);
         this->end_points = arma::join_horiz(this->end_points, end_point);
 
-        const arma::uvec block_dimension = end_point - begin_point + arma::ones<arma::uvec>(arma::size(begin_point));
+        const arma::uvec block_dimension =
+            end_point - begin_point + arma::ones<arma::uvec>(arma::size(begin_point));
         const arma::uword n_elem = arma::prod(block_dimension);
+
+        const arma::uword original_n_elem = arma::sum(this->block_n_elem);
 
         this->blocks_dimension = arma::join_horiz(this->blocks_dimension, block_dimension);
         this->block_n_elem = arma::join_vert(this->block_n_elem, arma::uvec{n_elem});
         this->index_tables = arma::join_horiz(this->index_tables, index_table);
-        this->block_offsets = arma::join_vert(this->block_offsets, arma::uvec{arma::sum(this->block_offsets)});
+        this->block_offsets = arma::join_vert(this->block_offsets, arma::uvec{original_n_elem});
 
-        this->data = std::unique_ptr<T>((T *)realloc(this->data.get(), n_elem * sizeof(T)));
+        T * ptr_new = (T *)realloc(this->data.get(),
+                                   arma::sum(this->block_n_elem)
+                                   * sizeof(T));
+
+        this->data.release();
+        this->data.reset(ptr_new);
+
+        memcpy(this->data.get() + original_n_elem, source_data, n_elem * sizeof(T));
     }
 
     /// Modify a number in the tensor
@@ -216,9 +226,40 @@ public:
             throw Error("Rank does not match");
         }
 
-        if(this->data) {
-            const arma::uvec in_range = util::in_range(indices, this->begin_points, this->end_points);
+        if(arma::any(indices >= this->dimension)) {
+          throw Error("Indices out of boundary");
+        }
 
+        if(this->data) {
+            const arma::uvec in_range =
+                util::in_range(indices, this->begin_points, this->end_points);
+
+            if(in_range.n_elem) {
+
+              const arma::uword block_index = in_range(0);
+
+              const arma::uvec relative_indices =
+                  indices - this->begin_points.col(block_index);
+
+              this->data.get()[block_offsets(block_index)
+              + arma::sum(relative_indices % this->index_tables.col(block_index))] = number;
+
+              // all elements at this location in other blocks are set to zero
+              for(arma::uword i=1; i<in_range.n_elem; i++) {
+                const arma::uword block_index_setting_null = in_range(i);
+                this->data.get()[block_offsets(block_index_setting_null)
+                                 + arma::sum(relative_indices %
+                                 this->index_tables.col(block_index_setting_null))]
+                               = 0;
+              }
+            } else { // no blocks holding information for this element
+
+              if(number != 0) {
+                // append block
+                this->append_block(&number, indices, indices,
+                                   arma::zeros<arma::uvec>(arma::size(indices)));
+              }
+            }
         } else {
             throw Error("Tensor not initialized");
         }
@@ -233,15 +274,25 @@ public:
             throw Error("Rank does not match");
         }
 
+      if(arma::any(indices >= this->dimension)) {
+        throw Error("Indices out of boundary");
+      }
+
         if(this->data) {
-            const arma::uvec in_range = util::in_range(indices, this->begin_points, this->end_points);
+            const arma::uvec in_range =
+                util::in_range(indices, this->begin_points, this->end_points);
             if(in_range.n_elem) {
                 T temp = 0;
                 for(arma::uword i=0; i<in_range.n_elem; i++) {
 
                     const arma::uword block_index = in_range(i);
 
-                    temp += this->data.get()[block_offsets(i) + arma::sum(indices % this->index_tables.col(block_index))];
+                  const arma::uvec relative_indices =
+                      indices - this->begin_points.col(block_index);
+
+                    temp +=
+                        this->data.get()[block_offsets(block_index) +
+                        arma::sum(relative_indices % this->index_tables.col(block_index))];
                 }
 
                 return temp;

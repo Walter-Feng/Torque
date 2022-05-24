@@ -139,6 +139,10 @@ public:
             throw Error("Rank does not match");
         }
 
+      if(arma::any(indices >= this->dimension)) {
+        throw Error("Indices out of boundary");
+      }
+
         if(this->data) {
             this->data.get()[arma::sum(indices % this->index_table)] = number;
         } else {
@@ -154,6 +158,10 @@ public:
         if(indices.n_elem != this->rank) {
             throw Error("Rank does not match");
         }
+
+      if(arma::any(indices >= this->dimension)) {
+        throw Error("Indices out of boundary");
+      }
 
         if(this->data) {
             return this->data.get()[arma::sum(indices % this->index_table)];
