@@ -9,6 +9,69 @@
 
 namespace torque {
 
+struct
+ContractionInfo {
+    arma::uvec block_indices; // The selection of tensor blocks with non-trivial contribution
+    arma::umat new_begin_points; // The begin points of new blocks from contraction
+    arma::umat new_end_points; // The end points of new blocks from contraction
+
+    arma::uvec contraction_A_begin_point; // the starting point of the block with non-trivial contribution to contraction from A block
+    arma::umat contraction_B_begin_points; // the starting points of the blocks with non-trivial contribution to contraction from B blocks
+
+    arma::uvec contraction_begin_point; // Starting point of the reduced subblock for contraction
+    arma::umat contraction_end_points; // End point of the reduced subblock for contraction
+    arma::umat contraction_tables; // index table for the contraction that helps iterating over the contracting elements
+};
+
+ContractionInfo
+block_in_range(const arma::umat & contracting_indices,
+               const arma::uvec & A_begin_point,
+               const arma::uvec & A_end_point,
+               const arma::umat & B_begin_points,
+               const arma::umat & B_end_points) {
+
+    // assert A block and B block have consistent number of subblocks and rank
+    assert(A_begin_point.n_rows == A_end_point.n_rows);
+    assert(B_begin_points.n_rows == B_end_points.n_rows);
+    assert(B_begin_points.n_cols == B_end_points.n_cols);
+
+    // The intervals of the non-trivial contribution from the blocks are min(end) - max(begin)
+    arma::umat max_begin_indices_in_contracting_dimension(arma::size(contracting_indices.n_rows,
+                                                                     B_begin_points.n_cols), arma::fill::zeros);
+
+    arma::umat min_end_indices_in_contracting_dimension(arma::size(contracting_indices.n_rows,
+                                                                   B_begin_points.n_cols), arma::fill::zeros);
+
+    // Check whether it has non-trivial intervals for each block
+    arma::Col<int> true_false_list(B_begin_points.n_cols, arma::fill::zeros);
+
+    for(arma::uword i=0; i<B_begin_points.n_cols; i++) {
+        //TODO: get the projection of these indices at contracting dimensions
+        const arma::uvec max_begin_indices = arma::max(A_begin_point, B_begin_points.col(i));
+        const arma::uvec min_end_indices = arma::min(A_end_point, B_end_points.col(i));
+
+        if(arma::all(max_begin_indices < min_end_indices)) {
+            true_false_list(i) = 1;
+
+            max_begin_indices_in_contracting_dimension.col(i) = max_begin_indices;
+            min_end_indices_in_contracting_dimension.col(i) = min_end_indices;
+        }
+    }
+
+    const arma::uvec non_trivial_block_index = arma::find(true_false_list);
+
+    if(non_trivial_block_index.n_elem) {
+        arma::uvec new_begin_points_from_A = A_begin_point;
+        new_begin_points_from_A.shed_rows(contracting_indices.col(0));
+        arma::umat new_begin_points_from_B = B_begin_points;
+
+    } else {
+        return {arma::uvec{}, arma::umat{}, arma::umat{}};
+    }
+
+
+
+}
 /// a tensor object that stores blocks of sub-tensors. The blocks may have intersections.
 template<typename T>
 class BlockSparseTensor
@@ -318,7 +381,7 @@ public:
         const arma::uvec contract_dimension = this->dimension(this_contracting_indices);
         const arma::uvec contract_table = util::generate_index_table(contract_dimension);
 
-        if(!arma::all(contract_dimension - tensor.dimension(that_contracting_indices) == 0)) {
+        if(!arma::all(contract_dimension == tensor.dimension(that_contracting_indices))) {
             throw Error("The dimensions from two tensors to be contracted do not match");
         }
 
@@ -328,7 +391,7 @@ public:
         this_dimension_copy.shed_rows(this_contracting_indices);
         that_dimension_copy.shed_rows(that_contracting_indices);
         const arma::uvec new_dimension = arma::join_vert(this_dimension_copy, that_dimension_copy);
-        const arma::uvec new_dimension_table = util::generate_index_table(new_dimension);
+
 
         auto result = BlockSparseTensor<std::common_type_t<T, U>>(new_dimension);
 
@@ -398,22 +461,12 @@ public:
         if(permutation.n_elem != rank) {
             throw Error("The number of permutation does not match the rank of tensor");
         }
-        this->index_tables = this->index_tables(permutation);
+
+        this->index_tables = this->index_tables.rows(permutation);
         this->dimension = this->dimension(permutation);
+        this->begin_points = this->begin_points.rows(permutation);
+        this->end_points = this->end_points.rows(permutation);
 
-    }
-
-
-    /// Whether this tensor is sorted, i.e. has not been soft transposed.
-    inline
-    bool is_sorted() const {
-        return this->index_tables.is_sorted();
-    }
-
-    /// Whether this tensor has stride of the leading dimension equal to 1.
-    inline
-    bool has_leading_dimension() const {
-        return this->index_tables(1) == 0;
     }
 
     /// Transposition of the tensors according to the permutation, creating new object with new alignment of data.

@@ -64,6 +64,5 @@ arma::uvec in_range(const arma::uvec & indices, const arma::umat & begin_points,
     return arma::find(true_false_list != 0);
 }
 
-
 }
 }
