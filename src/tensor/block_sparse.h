@@ -55,9 +55,9 @@ block_in_range(const arma::umat & contracting_indices,
 
         const arma::uvec max_begin_indices = arma::max(A_begin_point.rows(A_contracting_indices),
                                                        i_begin_point.rows(B_contracting_indices));
-        const arma::uvec min_end_indices = arma::min(A_end_point, i_end_point.rows(B_contracting_indices));
+        const arma::uvec min_end_indices = arma::min(A_end_point.rows(A_contracting_indices), i_end_point.rows(B_contracting_indices));
 
-        if(arma::all(max_begin_indices < min_end_indices)) {
+        if(arma::all(max_begin_indices <= min_end_indices)) {
             true_false_list(i) = 1;
 
             max_begin_indices_in_contracting_dimension.col(i) = max_begin_indices;
@@ -72,25 +72,25 @@ block_in_range(const arma::umat & contracting_indices,
         arma::uvec new_begin_point_from_A = A_begin_point;
         new_begin_point_from_A.shed_rows(A_contracting_indices);
 
-        arma::umat new_begin_points_from_B = B_begin_points;
+        arma::umat new_begin_points_from_B = B_begin_points.cols(non_trivial_block_index);
         new_begin_points_from_B.shed_rows(B_contracting_indices);
 
-        const arma::uword new_rank = new_begin_point_from_A.n_elem + new_begin_points_from_B.n_cols;
+        const arma::uword new_rank = new_begin_point_from_A.n_elem + new_begin_points_from_B.n_rows;
 
         const arma::umat new_begin_points =
                 new_rank ?
-                arma::join_vert(arma::repmat(new_begin_point_from_A, 1, B_n_blocks),new_begin_points_from_B) :
+                arma::join_vert(arma::repmat(new_begin_point_from_A, 1, non_trivial_block_index.n_elem),new_begin_points_from_B) :
                 arma::umat{};
 
         arma::uvec new_end_point_from_A = A_end_point;
         new_end_point_from_A.shed_rows(A_contracting_indices);
 
-        arma::umat new_end_points_from_B = B_end_points;
+        arma::umat new_end_points_from_B = B_end_points.cols(non_trivial_block_index);
         new_end_points_from_B.shed_rows(B_contracting_indices);
 
         const arma::umat new_end_points =
                 new_rank ?
-                arma::join_vert(arma::repmat(new_end_point_from_A, 1, B_n_blocks), new_end_points_from_B) :
+                arma::join_vert(arma::repmat(new_end_point_from_A, 1, non_trivial_block_index.n_elem), new_end_points_from_B) :
                 arma::umat{};
 
         arma::umat contracting_tables(arma::size(max_begin_indices_in_contracting_dimension));
@@ -164,15 +164,8 @@ public:
 
     inline
     explicit BlockSparseTensor(const arma::uvec & dimension) {
-
+        this->rank = dimension.n_elem;
         this->dimension = dimension;
-
-        this->blocks_dimension = arma::zeros(dimension.n_elem, 1);
-        this->block_n_elem = arma::prod(this->blocks_dimension);
-        this->block_offsets = util::nest_sum(this->block_n_elem);
-
-        rank = dimension.n_elem;
-
         this->data = std::unique_ptr<T>((T *) malloc(sizeof(T)));
         memset(this->data.get(), 0, sizeof(T));
     }
@@ -187,14 +180,12 @@ public:
 
         this->dimension = total_dimension;
 
-
-
         if(rank > 0) {
             this->begin_points = begin_points;
             this->end_points = end_points;
 
             const auto n_blocks = begin_points.n_cols;
-            this->blocks_dimension = end_points - begin_points + arma::ones<arma::uvec>(arma::size(begin_points));
+            this->blocks_dimension = end_points - begin_points + arma::ones<arma::umat>(arma::size(begin_points));
 
             this->block_n_elem = arma::prod(this->blocks_dimension).t();
             this->block_offsets = util::nest_sum(this->block_n_elem);
@@ -239,7 +230,7 @@ public:
         this->end_points = end_points;
 
         const auto n_blocks = begin_points.n_cols;
-        this->blocks_dimension = end_points - begin_points + arma::ones<arma::uvec>(arma::size(begin_points));
+        this->blocks_dimension = end_points - begin_points + arma::ones<arma::umat>(arma::size(begin_points));
 
         this->block_n_elem = arma::prod(this->blocks_dimension).t();
         this->block_offsets = util::nest_sum(this->block_n_elem);
@@ -443,6 +434,8 @@ public:
             throw Error("The dimensions from two tensors to be contracted do not match");
         }
 
+
+
         // Prepare dimension for the new tensor
         arma::uvec this_dimension_copy = this->dimension;
         arma::uvec that_dimension_copy = tensor.dimension;
@@ -452,9 +445,8 @@ public:
 
         auto result = BlockSparseTensor<std::common_type_t<T, U>>(new_dimension);
 
-
-
         for(arma::uword i=0; i<this->block_n_elem.n_elem; i++) {
+
             const arma::uvec A_begin_point = this->begin_points.col(i);
             const arma::uvec A_begin_point_in_contracting_dimension = A_begin_point.rows(this_contracting_indices);
             const arma::uvec A_end_point = this->end_points.col(i);
@@ -462,15 +454,23 @@ public:
             const ContractionInfo contracting_info = block_in_range(contracting_indices, A_begin_point, A_end_point,
                                                                     tensor.begin_points, tensor.end_points);
 
+
+
             for(arma::uword j_block=0; j_block<contracting_info.block_indices.n_elem; j_block++) {
                 const arma::uword B_block_index = contracting_info.block_indices(j_block);
+
                 const arma::uvec B_begin_point = tensor.begin_points.col(B_block_index);
-                const arma::uvec B_begin_point_in_contracting_dimension = B_begin_point.rows(this_contracting_indices);
+
+
+                const arma::uvec B_begin_point_in_contracting_dimension = B_begin_point.rows(that_contracting_indices);
 
                 const arma::uvec j_contracting_start = contracting_info.contraction_begin_points.col(j_block);
                 const arma::uvec j_contracting_end = contracting_info.contraction_end_points.col(j_block);
+
+
                 const arma::uvec j_contracting_table = contracting_info.contraction_tables.col(j_block);
                 const arma::uvec j_contract_dim = j_contracting_end - j_contracting_start + arma::ones<arma::uvec>(j_contracting_start.n_elem);
+
 
                 if(result.rank > 0) {
                     const arma::uvec j_begin_point = contracting_info.new_begin_points.col(j_block);
@@ -479,7 +479,8 @@ public:
                     const arma::uvec j_dim = j_end_point - j_begin_point + arma::ones<arma::uvec>(j_begin_point.n_elem);
                     const arma::uvec j_new_table = util::generate_index_table(j_dim);
 
-                    std::common_type_t<T, U> * j_block_data = calloc(arma::prod(j_dim), sizeof(std::common_type_t<T, U>));
+                    auto * j_block_data =
+                            (std::common_type_t<T, U> *) calloc(arma::prod(j_dim), sizeof(std::common_type_t<T, U>));
 
                     for(arma::uword subblock_index=0; subblock_index<arma::prod(j_dim); subblock_index++) {
 
@@ -533,8 +534,8 @@ public:
                         const arma::uvec contraction_indices = relative_contraction_indices + j_contracting_start;
 
                         // assign the summation indices to the original tensor indices
-                        const arma::uvec this_dimension_indices = contraction_indices(this_sort_index);
-                        const arma::uvec that_dimension_indices = contraction_indices(that_sort_index);
+                        const arma::uvec this_dimension_indices = contraction_indices(this_sort_index) - A_begin_point;
+                        const arma::uvec that_dimension_indices = contraction_indices(that_sort_index) - B_begin_point;
 
                         const std::common_type_t<T, U>
                                 elem = this->data.get()[arma::sum(this->index_tables.col(i) % this_dimension_indices)
@@ -563,6 +564,7 @@ public:
 
         this->index_tables = this->index_tables.rows(permutation);
         this->dimension = this->dimension(permutation);
+        this->blocks_dimension = this->blocks_dimension(permutation);
         this->begin_points = this->begin_points.rows(permutation);
         this->end_points = this->end_points.rows(permutation);
 
@@ -579,35 +581,31 @@ public:
         }
 
         const arma::uvec new_dimension = this->dimension(permutation);
+        const arma::umat new_blocks_dimension = this->blocks_dimension.rows(permutation);
+        const arma::umat new_begin_points = this->begin_points.rows(permutation);
+        const arma::umat new_end_points = this->end_points.rows(permutation);
 
-        arma::uvec new_table(rank);
+        auto result = BlockSparseTensor<T>(new_dimension);
 
-        arma::uword table_index = 1;
+        for(arma::uword i=0; i<new_begin_points.n_cols; i++) {
+            const arma::uvec new_table = util::generate_index_table(new_blocks_dimension.col(i));
+            const arma::uword n_elem = arma::prod(new_blocks_dimension.col(i));
 
-        for (arma::uword i = 0; i < rank; i++) {
-            new_table(i) = table_index;
-            table_index *= new_dimension(i);
+            const arma::uvec old_table_sort_index = arma::sort_index(this->index_tables.col(i));
+
+            T * block_data = (T *) malloc(n_elem * sizeof(T));
+            for(arma::uword j=0; j<n_elem; j++) {
+                const arma::uvec old_indices = util::index_to_indices(j, this->index_tables.col(i), old_table_sort_index);
+                const arma::uvec new_indices = old_indices(permutation);
+
+                block_data[arma::sum(new_indices % new_table)] =
+                        this->data.get()[arma::sum(old_indices % this->index_tables.col(i)) + this->block_offsets(i)];
+            }
+
+            result.append_block(block_data, new_begin_points.col(i), new_end_points.col(i), new_table);
         }
 
-        const arma::uword total_elem = arma::prod(this->dimension);
-
-        std::unique_ptr<T> new_data((T *) malloc(sizeof(T) * total_elem));
-
-        const auto data_pointer = this->data.get();
-        const auto new_data_pointer = new_data.get();
-
-        // It is possible that this tensor has been soft transposed, i.e.
-        // the index table may not be in sorted order.
-        const arma::uvec sort_index = arma::sort_index(this->index_tables);
-
-        for(arma::uword i=0; i<total_elem; i++) {
-
-            const arma::uvec new_indices = util::index_to_indices(i, this->index_tables, sort_index);
-
-            new_data_pointer[arma::sum(new_indices(permutation) % new_table)] = data_pointer[i];
-        }
-
-        return BlockSparseTensor<T>(std::move(new_data_pointer), new_dimension);
+        return result;
 
     }
 
