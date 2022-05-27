@@ -180,6 +180,14 @@ public:
         const arma::uvec this_contracting_indices = contracting_indices.col(0);
         const arma::uvec that_contracting_indices = contracting_indices.col(1);
 
+        // It might be that the contracting indices may not be sorted, for example the matrix inner product
+        // of two matrices (A, B) = sum( A % B^T ), where % is the element-wise multiplication
+        // To restore the shed indices, we need the sorted contracting indices
+        const arma::uvec this_sort_index = arma::sort_index(this_contracting_indices);
+        const arma::uvec that_sort_index = arma::sort_index(that_contracting_indices);
+        const arma::uvec sorted_this_contracting_indices = this_contracting_indices(this_sort_index);
+        const arma::uvec sorted_that_contracting_indices = that_contracting_indices(that_sort_index);
+
         const arma::uvec contract_dimension = this->dimension(this_contracting_indices);
         const arma::uvec contract_table = util::generate_index_table(contract_dimension);
 
@@ -207,13 +215,6 @@ public:
                         this->rank - contract_dimension.n_elem <= result.rank - 1 ?
                         new_dimension_indices.rows(this->rank - contract_dimension.n_elem, result.rank - 1) :
                         arma::uvec{};
-
-
-                // It might be that the contracting indices may not be sorted, for example the matrix inner product
-                // of two matrices (A, B) = sum( A % B^T ), where % is the element-wise multiplication
-                // To restore the shed indices, we need the sorted contracting indices
-                const arma::uvec sorted_this_contracting_indices = arma::sort(this_contracting_indices);
-                const arma::uvec sorted_that_contracting_indices = arma::sort(that_contracting_indices);
 
                 for(arma::uword k=0; k<sorted_this_contracting_indices.n_elem; k++){
                     this_dimension_indices.insert_rows(sorted_this_contracting_indices(k), 1);
@@ -244,8 +245,8 @@ public:
                 const arma::uvec contraction_indices = util::index_to_indices(j, contract_table);
 
                 // assign the summation indices to the original tensor indices
-                const arma::uvec this_dimension_indices = contraction_indices(this_contracting_indices);
-                const arma::uvec that_dimension_indices = contraction_indices(that_contracting_indices);
+                const arma::uvec this_dimension_indices = contraction_indices(this_sort_index);
+                const arma::uvec that_dimension_indices =contraction_indices(that_sort_index);
 
                 const std::common_type_t<T, U>
                         elem = this->query(this_dimension_indices) * tensor.query(that_dimension_indices);
