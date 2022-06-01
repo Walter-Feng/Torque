@@ -10,15 +10,15 @@ namespace sparse {
 
 __device__
 void index_to_indices (
-        long long index,
-        const long long * index_table,
-        const long long * sorted_index,
-        const long long rank,
-        long long * indices_output
+        unsigned long index,
+        const unsigned long * index_table,
+        const unsigned long * sorted_index,
+        const unsigned long rank,
+        unsigned long * indices_output
         ) {
 
-    for(long long i=1; i<=rank; i++) {
-        const long long sorted_i = sorted_index[rank - i];
+    for(unsigned long i=1; i<=rank; i++) {
+        const unsigned long sorted_i = sorted_index[rank - i];
         indices_output[sorted_i] = index / index_table[sorted_i];
         index %= index_table[sorted_i];
     }
@@ -28,31 +28,55 @@ void index_to_indices (
 
 __global__
 void handle_indices(
-        const thrust::device_vector<long long> & A_indices,
-        const thrust::device_vector<long long> & B_indices,
-        const thrust::device_vector<long long> & A_index_table,
-        const thrust::device_vector<long long> & A_sorted_index,
-        const thrust::device_vector<long long> & B_index_table,
-        const thrust::device_vector<long long> & B_sorted_index,
-        thrust::device_vector<long long> & output
+        const unsigned long * A_indices,
+        const unsigned long A_indices_length,
+        const unsigned long * B_indices,
+        const unsigned long B_indices_length,
+        const unsigned long * A_index_table,
+        const unsigned long * A_sorted_index,
+        const int A_rank,
+        const unsigned long * B_index_table,
+        const unsigned long * B_sorted_index,
+        const int B_rank,
+        unsigned long * output
         ) {
 
-    extern __shared__ long long cached_A_table[];
-    extern __shared__ long long cached_B_table[];
-    extern __shared__ long long cached_A_sort_index[];
-    extern __shared__ long long cached_B_sort_index[];
+    extern __shared__ unsigned long cached_A_table[];
+    extern __shared__ unsigned long cached_B_table[];
+    extern __shared__ unsigned long cached_A_sort_index[];
+    extern __shared__ unsigned long cached_B_sort_index[];
 
-    __shared__ long long A_cached[1024];
-    __shared__ long long B_cached[1024];
+    __shared__ unsigned long A_cached[1024];
+    __shared__ unsigned long B_cached[1024];
 
-    __shared__ long long output_cached[1024];
+    __shared__ unsigned long output_cached[1024];
 
-    long long thread_index = blockIdx.x * blockDim.x + threadIdx.x;
-    long long stride = blockDim.x * gridDim.x;
+    unsigned long thread_index = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned long stride = blockDim.x * gridDim.x;
 
-    if(threadIdx.x < A_indices.size()) {
-         
+    unsigned long tid = threadIdx.x;
+
+    // copy the indices to shared memory
+    if(tid < A_rank) {
+         cached_A_table[tid] = A_index_table[tid];
+    } else {
+        if(tid < 2 * A_rank) {
+            cached_A_sort_index[tid - A_rank] = A_sorted_index[tid - A_rank];
+        } else {
+            if(tid < 2 * A_rank + B_rank) {
+                cached_B_table[tid - 2 * A_rank] = B_index_table[tid - 2 * A_rank];
+            } else {
+                if (tid < 2 * A_rank + 2 * B_rank) {
+                    cached_B_table[tid - 2 * A_rank - B_rank] = B_index_table[tid - 2 * A_rank - B_rank];
+                }
+            }
+        }
     }
+
+    __syncthreads();
+
+    B_cached[tid] =
+
 
 
 }
