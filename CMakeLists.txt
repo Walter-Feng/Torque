@@ -123,6 +123,7 @@ if(USE_GPU)
 
     include_directories("${CUDA_INCLUDE_DIRS}")
 
+
     if(NOT DEFINED ENV{CUTENSOR_ROOT} AND NOT DEFINED CUTENSOR_ROOT)
         message("cuTensor not found. A homebrew implementation will be used.")
     else()
@@ -161,7 +162,11 @@ if(USE_GPU)
     endif()
 
 
+    add_library(gpu_torque SHARED
 
+        src/gpu/sparse.cu
+
+        )
 endif()
 
 
@@ -181,3 +186,17 @@ target_link_libraries(test_tensor catch2 torque)
 
 add_test(NAME UNITTEST_core
         COMMAND bin/test_tensor)
+
+if(USE_GPU)
+    add_executable(test_gpu_tensor
+            test/gpu/sparse_test.cu
+            )
+
+    target_link_libraries(test_gpu_tensor catch2 torque gpu_torque)
+
+    add_test(NAME UNITTEST_gpu
+            COMMAND bin/test_gpu_tensor)
+endif()
+
+
+
