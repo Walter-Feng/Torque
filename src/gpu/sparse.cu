@@ -1,7 +1,10 @@
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/generate.h>
-#include <thrust/reduce.h>
+#include <iostream>
+#ifndef ARMA_ALLOW_FAKE_GCC
+#define ARMA_ALLOW_FAKE_GCC
+#include <armadillo>
 
 #define MAX_RANK 10
 #define BW 32
@@ -79,24 +82,24 @@ void index_to_indices (
 __global__
 void handle_indices_kernel(
         const int32_t * A_indices,
-        const int32_t A_indices_length,
+        const uint32_t A_indices_length,
         const int32_t * B_indices,
-        const int32_t B_indices_length,
+        const uint32_t B_indices_length,
         const int32_t * A_index_table,
         const int32_t * A_sorted_index,
-        const int A_rank,
+        const uint32_t A_rank,
         const int32_t * B_index_table,
         const int32_t * B_sorted_index,
-        const int B_rank,
+        const uint32_t B_rank,
         const int32_t * A_contracting_indices,
         const int32_t * B_contracting_indices,
-        const int32_t contracting_ndim,
+        const uint32_t contracting_ndim,
         const int32_t * A_free_indices,
-        const int32_t A_free_indices_length,
+        const uint32_t A_free_indices_length,
         const int32_t * B_free_indices,
-        const int32_t B_free_indices_length,
+        const uint32_t B_free_indices_length,
         const int32_t * index_table_out,
-        const int32_t out_rank,
+        const uint32_t out_rank,
         int32_t * output
         ) {
 
@@ -181,7 +184,7 @@ void handle_indices_kernel(
 
 }
 
-void handle_indices(
+thrust::device_vector<int32_t>  handle_indices(
         const thrust::device_vector<int32_t> & A_indices,
         const thrust::device_vector<int32_t> & B_indices,
         const thrust::device_vector<int32_t> & A_index_table,
@@ -192,22 +195,23 @@ void handle_indices(
         const thrust::device_vector<int32_t> & B_contracting_indices,
         const thrust::device_vector<int32_t> & A_free_indices,
         const thrust::device_vector<int32_t> & B_free_indices,
-        const thrust::device_vector<int32_t> & index_table_out,
-        thrust::device_vector<int32_t> & output
+        const thrust::device_vector<int32_t> & index_table_out
 ) {
     assert(A_index_table.size() == A_sorted_index.size());
     assert(B_index_table.size() == B_sorted_index.size());
     assert(A_contracting_indices.size() == B_contracting_indices.size());
 
-    const int32_t A_indices_length = A_indices.size();
-    const int32_t B_indices_length = B_indices.size();
-    const int32_t A_rank = A_index_table.size();
-    const int32_t B_rank = B_index_table.size();
+    const uint32_t A_indices_length = A_indices.size();
+    const uint32_t B_indices_length = B_indices.size();
+    const uint32_t A_rank = A_index_table.size();
+    const uint32_t B_rank = B_index_table.size();
 
-    const int32_t contracting_ndim = A_contracting_indices.size();
+    const uint32_t contracting_ndim = A_contracting_indices.size();
 
     dim3 blockSize(32, 32);
     dim3 gridSize(A_indices_length / 32 + 1, B_indices_length / 32 + 1);
+
+    thrust::device_vector<int32_t> output(A_indices.size() * B_indices.size());
 
     handle_indices_kernel<<<blockSize, gridSize>>>(
             thrust::raw_pointer_cast(A_indices.data()),
@@ -231,5 +235,21 @@ void handle_indices(
             index_table_out.size(),
             thrust::raw_pointer_cast(output.data())
     );
+
+    return output;
 }
+
+
+thrust::device_vector<int32_t>  handle_indices(
+        const thrust::device_vector<int32_t> & A_indices,
+        const thrust::device_vector<int32_t> & B_indices,
+        const arma::uvec & A_index_table,
+        const arma::uvec & B_index_table,
+        const arma::umat & contracting_indices
+) {
+
 }
+
+
+}
+#endif

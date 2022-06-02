@@ -32,9 +32,9 @@ cmake_minimum_required(VERSION 3.17)
 option(USE_GPU "Use GPU" OFF)
 
 if(USE_GPU)
-    project(torque LANGUAGES C CXX CUDA)
+    project(torque LANGUAGES CXX CUDA)
 else()
-    project(torque LANGUAGES C CXX)
+    project(torque LANGUAGES CXX)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
