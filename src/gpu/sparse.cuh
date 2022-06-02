@@ -8,7 +8,8 @@
 #include "util/thrust_arma_fusion.cuh"
 
 
-namespace torque::gpu {
+namespace torque {
+namespace gpu {
 
 
 
@@ -352,5 +353,5 @@ protected:
 
 
 }
-
+}
 #endif //TORQUE_GPU_SPARSE_CUH

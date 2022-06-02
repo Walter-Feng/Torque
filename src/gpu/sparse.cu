@@ -9,7 +9,9 @@
 #define MAX_RANK 10
 #define BW 32
 
-namespace torque::gpu::sparse {
+namespace torque {
+namespace gpu {
+namespace sparse {
 
 __device__
 void index_to_indices (
@@ -251,5 +253,7 @@ thrust::device_vector<int32_t>  handle_indices(
 }
 
 
+}
+}
 }
 #endif

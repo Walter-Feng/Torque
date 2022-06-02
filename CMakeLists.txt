@@ -119,7 +119,7 @@ set_target_properties(torque
 option(USE_CUTENSOR "Use cuTensor" OFF)
 
 if(USE_GPU)
-    find_package(CUDA 10.1)
+    find_package(CUDA)
 
     include_directories("${CUDA_INCLUDE_DIRS}")
 

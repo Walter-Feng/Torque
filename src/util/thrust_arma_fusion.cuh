@@ -6,7 +6,8 @@
 #define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
 
-namespace torque::util {
+namespace torque {
+namespace util {
 
 template<typename T>
 thrust::device_vector<T> arma_to_thrust_device(const arma::Col<T> & vector) {
@@ -37,5 +38,6 @@ arma::uvec thrust_find(const thrust::device_vector<T> & vector, const arma::uwor
     return result;
 }
 
+}
 }
 #endif //UTIL_DATA_CONVERSION_H
