@@ -3,75 +3,73 @@
 #define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
 
 #include "gpu/util/thrust_arma_fusion.cuh"
+#include "util/space.h"
 
 namespace torque {
 namespace gpu {
+namespace sparse {
+    thrust::device_vector<int32_t>  handle_indices(
+            const thrust::device_vector<int32_t> & A_indices,
+            const thrust::device_vector<int32_t> & B_indices,
+            const thrust::device_vector<int32_t> & A_index_table,
+            const thrust::device_vector<int32_t> & A_sorted_index,
+            const thrust::device_vector<int32_t> & B_index_table,
+            const thrust::device_vector<int32_t> & B_sorted_index,
+            const thrust::device_vector<int32_t> & A_contracting_indices,
+            const thrust::device_vector<int32_t> & B_contracting_indices,
+            const thrust::device_vector<int32_t> & A_free_indices,
+            const thrust::device_vector<int32_t> & B_free_indices,
+            const thrust::device_vector<int32_t> & index_table_out
+    );
 
-inline
-arma::uvec generate_index_table(const arma::uvec &dimension) {
+    inline
+    thrust::device_vector<int32_t>
+    handle_indices(
+            const thrust::device_vector<int32_t> & A_indices,
+            const thrust::device_vector<int32_t> & B_indices,
+            const arma::uvec & A_dimension,
+            const arma::uvec & B_dimension,
+            const arma::uvec & A_index_table,
+            const arma::uvec & B_index_table,
+            const arma::uvec & A_contracting_indices,
+            const arma::uvec & B_contracting_indices,
+            const arma::uvec & out_index_table
+    ) {
+        const arma::uvec A_sorted_index = arma::sort_index(A_index_table);
+        const arma::uvec B_sorted_index = arma::sort_index(B_index_table);
 
-    arma::uvec table(dimension.n_elem);
+        arma::uvec A_free_indices(A_dimension.n_elem);
+        for(arma::uword i=0; i<A_free_indices.n_elem; i++) {
+            A_free_indices(i) = i;
+        }
 
-    arma::uword table_index = 1;
+        arma::uvec B_free_indices(B_dimension.n_elem);
+        for(arma::uword i=0; i<B_free_indices.n_elem; i++) {
+            B_free_indices(i) = i;
+        }
 
-    for (arma::uword i = 0; i < dimension.n_elem; i++) {
-        table(i) = table_index;
-        table_index *= dimension(i);
+        A_free_indices.shed_rows(A_contracting_indices);
+        B_free_indices.shed_rows(B_contracting_indices);
+
+
+        return handle_indices(
+                A_indices,
+                B_indices,
+                gpu::util::arma_to_thrust_device(A_index_table),
+                gpu::util::arma_to_thrust_device(A_sorted_index),
+                gpu::util::arma_to_thrust_device(B_index_table),
+                gpu::util::arma_to_thrust_device(B_sorted_index),
+                gpu::util::arma_to_thrust_device(A_contracting_indices),
+                gpu::util::arma_to_thrust_device(B_contracting_indices),
+                gpu::util::arma_to_thrust_device(A_free_indices),
+                gpu::util::arma_to_thrust_device(B_free_indices),
+                gpu::util::arma_to_thrust_device(out_index_table)
+        );
     }
 
-    return table;
-
-}
-
-inline
-arma::uvec index_to_indices(const arma::uword i, const arma::uvec &table) {
-
-    arma::uword temp_i = i;
-    arma::uvec indices(table.n_elem);
-
-    assert(table.is_sorted());
-
-    for (arma::uword j = table.n_elem - 1; j > 0; j--) {
-        indices(j) = temp_i / table(j);
-        temp_i = temp_i % table(j);
-    }
-
-    indices(0) = temp_i;
-
-    return indices;
-}
-
-inline
-arma::uvec index_to_indices(const arma::uword i, const arma::uvec &table, const arma::uvec &sort_index) {
-
-    arma::uword temp_i = i;
-    arma::uvec indices(table.n_elem);
-
-    for (arma::uword j = table.n_elem - 1; j > 0; j--) {
-        indices(sort_index(j)) = temp_i / table(sort_index(j));
-        temp_i = temp_i % table(sort_index(j));
-    }
-
-    indices(sort_index(0)) = temp_i;
-
-    return indices;
-}
-
-inline
-arma::uvec
-in_range(const arma::uvec &indices, const arma::umat &begin_points, const arma::umat &end_points) {
-
-    assert(begin_points.n_cols == end_points.n_cols);
-
-    arma::Col<int> true_false_list(begin_points.n_cols);
-
-    for (arma::uword i = 0; i < begin_points.n_cols; i++) {
-        true_false_list(i) = arma::all(indices >= begin_points.col(i))
-                             && arma::all(indices <= end_points.col(i));
-    }
-    return arma::find(true_false_list != 0);
 }
 
 template<typename T>
@@ -95,7 +93,7 @@ public:
     explicit SparseTensor(const arma::uvec & dimension) {
 
         this->dimension = dimension;
-        this->index_table = generate_index_table(dimension);
+        this->index_table = torque::util::generate_index_table(dimension);
 
         rank = dimension.n_elem;
 
@@ -118,7 +116,7 @@ public:
         if(rank > 0) {
             this->data = thrust::device_vector<T>(indices.n_elem);
 
-            if(!this->data) {
+            if(this->data.empty()) {
                 throw Error("Memory initialization failed");
             }
 
@@ -147,11 +145,11 @@ public:
 
     inline
     explicit SparseTensor(thrust::device_vector<T> && source_data,
-                          const arma::uvec & indices,
+                          const thrust::device_vector<int32_t> & indices,
                           const arma::uvec & index_table,
                           const arma::uvec & dimension) {
 
-        if(!source_data) {
+        if(source_data.empty()) {
             throw Error("Source data not allocated!");
         }
 
@@ -159,7 +157,7 @@ public:
 
         rank = dimension.n_elem;
 
-        this->indices = thrust::device_vector<int32_t>(arma::conv_to<std::vector<T>>::from(indices));
+        this->indices = indices;
 
         this->index_table = index_table;
 
@@ -196,7 +194,7 @@ public:
         if (modify_indices.n_elem != this->rank) {
             throw Error("Rank does not match");
         }
-        if (this->data) {
+        if (!this->data.empty()) {
             if(this->rank == 0) {
                 this->data[0] = number;
             } else {
@@ -210,7 +208,7 @@ public:
                         // Because we are doing sparse tensor,
                         // we would like to remove this element from the search list.
                         this->data[found_index(0)] =
-                                this->data.get()[this->indices.size() - 1];
+                                this->data[this->indices.size() - 1];
 
                         this->indices[found_index(0)] = this->indices[this->indices.size() - 1];
 
@@ -267,97 +265,72 @@ public:
     /// \param tensor another tensor to be contracted with
     /// \param contracting_indices the corresponding two indices for the dimensions to contract
     /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
-//    template<typename U>
-//    SparseTensor<std::common_type_t<T, U>>
-//    contract(const SparseTensor<U> & tensor, const arma::umat & contracting_indices) const {
-//        const arma::uvec this_contracting_indices = contracting_indices.col(0);
-//        const arma::uvec that_contracting_indices = contracting_indices.col(1);
-//
-//        const arma::uvec contract_dimension = this->dimension(this_contracting_indices);
-//        const arma::uvec contract_table = util::generate_index_table(contract_dimension);
-//
-//        if(!arma::all(contract_dimension - tensor.dimension(that_contracting_indices) == 0)) {
-//            throw Error("The dimensions from two tensors to be contracted do not match");
-//        }
-//
-//        // Prepare dimension for the new tensor
-//        arma::uvec this_dimension_copy = this->dimension;
-//        arma::uvec that_dimension_copy = tensor.dimension;
-//        this_dimension_copy.shed_rows(this_contracting_indices);
-//        that_dimension_copy.shed_rows(that_contracting_indices);
-//        const arma::uvec new_dimension = arma::join_vert(this_dimension_copy, that_dimension_copy);
-//        const arma::uvec new_dimension_table = util::generate_index_table(new_dimension);
-//
-//        const arma::uword result_rank = this->rank - contract_dimension.n_elem;
-//
-//        if(result_rank > 0) {
-//            std::vector<std::common_type_t<T, U>> raw_result_data;
-//            std::vector<arma::uword> raw_result_indices;
-//
-//            for(arma::uword i=0; i<indices.size(); i++) {
-//                const arma::uvec this_sort_index = arma::sort_index(this->index_table);
-//                const arma::uvec this_indices = util::index_to_indices(this->indices(i), this->index_table, this_sort_index);
-//
-//                for(arma::uword j=0; j<tensor.indices.n_elem; j++){
-//                    const arma::uvec that_sort_index = arma::sort_index(this->index_table);
-//                    const arma::uvec that_indices = util::index_to_indices(tensor.indices(j), tensor.index_table, that_sort_index);
-//
-//                    if(arma::all(this_indices(this_contracting_indices) == that_indices(that_contracting_indices))) {
-//                        raw_result_data.push_back(this->data.get()[i] * tensor.data.get()[j]);
-//
-//                        // Generate the new indices (i.e. in new tensor)
-//                        arma::uvec this_indices_copy = this_indices;
-//                        arma::uvec that_indices_copy = that_indices;
-//                        this_indices_copy.shed_rows(this_contracting_indices);
-//                        that_indices_copy.shed_rows(that_contracting_indices);
-//
-//                        const arma::uvec new_indices = arma::join_vert(this_indices_copy, that_indices_copy);
-//                        raw_result_indices.push_back(arma::sum(new_indices % new_dimension_table));
-//                    }
-//                }
-//            } // raw multiplication of elements finished
-//
-//            assert(raw_result_data.size() == raw_result_indices.size());
-//            // there might be elements with the same indices in new tensor which need to be merged
-//
-//            const arma::uvec unique_indices = arma::unique(arma::uvec(raw_result_indices));
-//
-//            std::unique_ptr<std::common_type_t<T, U>>
-//                    refined_data((std::common_type_t<T, U> *)
-//                                         calloc(unique_indices.n_elem, sizeof(std::common_type_t<T, U>)));
-//
-//            for(size_t i=0; i<raw_result_indices.size(); i++) {
-//                const arma::uvec index = arma::find(unique_indices == raw_result_indices[i]);
-//                assert(index.n_elem == 1);
-//                refined_data.get()[index(0)] += raw_result_data[i];
-//            }
-//
-//            return SparseTensor<std::common_type_t<T, U>>(
-//                    std::move(refined_data),
-//                    unique_indices,
-//                    new_dimension_table,
-//                    new_dimension);
-//
-//        } else { // Full contraction, generating a scalar
-//
-//            std::common_type_t<T,U> result = 0;
-//
-//            for(arma::uword i=0; i<indices.size(); i++) {
-//                const arma::uvec this_indices = util::index_to_indices(this->indices(i), this->index_table);
-//
-//                for(arma::uword j=0; j<tensor.indices.n_elem; j++){
-//                    const arma::uvec that_indices = util::index_to_indices(tensor.indices(j), tensor.index_table);
-//
-//                    if(arma::all(this_indices(this_contracting_indices) == that_indices(that_contracting_indices))) {
-//                        result += this->data.get()[i] * tensor.data.get()[j];
-//                    }
-//                }
-//            }
-//
-//            return SparseTensor<std::common_type_t<T, U>>(&result, arma::uvec{0}, arma::uvec{}, arma::uvec{});
-//
-//        }
-//    }
+    thrust::device_vector<T>
+    contract(cublasHandle_t handle, const SparseTensor<T> & tensor, const arma::umat & contracting_indices) const {
+
+        const arma::uvec this_contracting_indices = contracting_indices.col(0);
+        const arma::uvec that_contracting_indices = contracting_indices.col(1);
+
+        const arma::uvec contract_dimension = this->dimension(this_contracting_indices);
+        const arma::uvec contract_table = torque::util::generate_index_table(contract_dimension);
+
+        if(!arma::all(contract_dimension - tensor.dimension(that_contracting_indices) == 0)) {
+            throw Error("The dimensions from two tensors to be contracted do not match");
+        }
+
+        // Prepare dimension for the new tensor
+        arma::uvec this_dimension_copy = this->dimension;
+        arma::uvec that_dimension_copy = tensor.dimension;
+        this_dimension_copy.shed_rows(this_contracting_indices);
+        that_dimension_copy.shed_rows(that_contracting_indices);
+        const arma::uvec new_dimension = arma::join_vert(this_dimension_copy, that_dimension_copy);
+        const arma::uvec new_dimension_table = torque::util::generate_index_table(new_dimension);
+
+        const auto new_indices_raw = sparse::handle_indices(this->indices, tensor.indices,
+                                                            this->dimension, tensor.dimension,
+                                                            this->index_table, tensor.index_table,
+                                                            this_contracting_indices, that_contracting_indices,
+                                                            new_dimension_table);
+
+        thrust::device_vector<T> raw_output =
+                thrust::device_vector<T>(this->indices.size() * tensor.indices.size());
+
+        static_assert(
+                std::is_same<T, float>::value
+                || std::is_same<T, double>::value
+                || std::is_same<T, half>::value,
+                "GPU-enabled sparse tensor contraction can only support float, double and half");
+
+        T one = 1;
+        T zero = 0;
+
+        const T * this_pointer = thrust::raw_pointer_cast(this->data.data());
+        const T * that_pointer = thrust::raw_pointer_cast(tensor.data.data());
+        T * out_pointer = thrust::raw_pointer_cast(raw_output.data());
+
+        if constexpr(std::is_same<T, float>::value) {
+            cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
+                        this_pointer, this->indices.size(),
+                        that_pointer, tensor.indices.size(),
+                        &zero, out_pointer, this->indices.size());
+        }
+
+        if constexpr(std::is_same<T, double>::value) {
+            cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
+                        this_pointer, 1,
+                        that_pointer, 1,
+                        &zero, out_pointer, 1);
+        }
+
+        if constexpr(std::is_same<T, half>::value) {
+            cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
+                        this_pointer, 1,
+                        that_pointer, 1,
+                        &zero, out_pointer, 1);
+        }
+
+        return new_indices_raw;
+    }
 
     /// Transposition of the tensors according to the permutation, without changing original data
     /// \param permutation the permutation indices
@@ -375,37 +348,41 @@ public:
     /// Transposition of the tensors according to the permutation, creating new object with new alignment of data.
     /// This helps keeping the stride of leading dimension equal to 1.
     /// \param permutation the permutation indices
-//    inline
-//    SparseTensor<T> hard_transpose(const arma::uvec & permutation) const {
-//
-//        if(permutation.n_elem != rank) {
-//            throw Error("The number of permutation does not match the rank of tensor");
-//        }
-//
-//        const arma::uvec new_dimension = this->dimension(permutation);
-//
-//        const arma::uvec new_table = util::generate_index_table(new_dimension);
-//
-//        const arma::uword total_elem = this->indices.n_elem;
-//
-//        std::unique_ptr<T> new_data((T *) malloc(sizeof(T) * total_elem));
-//
-//        memcpy(new_data.get(), this->data.get(), sizeof(T) * total_elem);
-//        // It is possible that this tensor has been soft transposed, i.e.
-//        // the index table may not be in sorted order.
-//        const arma::uvec sort_index = arma::sort_index(this->index_table);
-//        arma::uvec new_indices(this->indices.n_elem);
-//
-//        for(arma::uword i=0; i<total_elem; i++) {
-//
-//            const arma::uvec old_indices = util::index_to_indices(i, this->index_table, sort_index);
-//            new_indices(i) = arma::sum(old_indices(permutation) % new_table);
-//
-//        }
-//
-//        return SparseTensor<T>(std::move(new_data), new_indices, new_table, new_dimension);
-//
-//    }
+    inline
+    SparseTensor<T> hard_transpose(const arma::uvec & permutation) const {
+
+        if(permutation.n_elem != rank) {
+            throw Error("The number of permutation does not match the rank of tensor");
+        }
+
+        const arma::uvec new_dimension = this->dimension(permutation);
+
+        const arma::uvec new_table = torque::util::generate_index_table(new_dimension);
+
+        const arma::uword total_elem = this->indices.size();
+
+        thrust::device_vector<T> new_data(total_elem);
+
+        cudaMemcpy(thrust::raw_pointer_cast(new_data.data()),
+                   thrust::raw_pointer_cast(this->data.data()),
+                   total_elem * sizeof(T),
+                   cudaMemcpyDeviceToDevice);
+
+        // It is possible that this tensor has been soft transposed, i.e.
+        // the index table may not be in sorted order.
+        const arma::uvec sort_index = arma::sort_index(this->index_table);
+        arma::uvec new_indices(this->indices.size());
+
+        for(arma::uword i=0; i<total_elem; i++) {
+
+            const arma::uvec old_indices = torque::util::index_to_indices(i, this->index_table, sort_index);
+            new_indices(i) = arma::sum(old_indices(permutation) % new_table);
+
+        }
+
+        return SparseTensor<T>(std::move(new_data), gpu::util::arma_to_thrust_device(new_indices), new_table, new_dimension);
+
+    }
 
 protected:
     /// Stores data

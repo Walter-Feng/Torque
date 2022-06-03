@@ -123,6 +123,7 @@ if(USE_GPU)
 
     include_directories("${CUDA_INCLUDE_DIRS}")
 
+    find_package(CUDAToolkit REQUIRED)
 
     if(NOT DEFINED ENV{CUTENSOR_ROOT} AND NOT DEFINED CUTENSOR_ROOT)
         message("cuTensor not found. A homebrew implementation will be used.")
@@ -156,17 +157,19 @@ if(USE_GPU)
                     INTERFACE_INCLUDE_DIRECTORIES "${CUTENSOR_ROOT}/include")
         endif()
 
+        add_library(gpu_torque SHARED
+
+                src/gpu/sparse.cu
+
+                )
+
         include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include)
-        target_link_libraries(torque cutensor)
+        target_link_libraries(gpu_torque cutensor CUDA::cublas CUDA::cudart)
         message("-- cuTENSOR linked.")
     endif()
 
 
-    add_library(gpu_torque SHARED
 
-        src/gpu/sparse.cu
-
-            )
 endif()
 
 

@@ -6,6 +6,9 @@
 #define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
 
+#include "util/space.h"
+#include "util/thrust_arma_fusion.cuh"
+
 #define MAX_RANK 10
 #define BW 32
 
@@ -40,15 +43,15 @@ void index_to_indices (
     int32_t out_indices[MAX_RANK];
 
     for(int32_t i=1; i<=rank_i; i++) {
-        const int32_t sorted_i = sorted_index_i[BW * (rank_i - i)];
-        i_indices[sorted_i] = index_i / index_table_i[BW * sorted_i];
-        index_i %= index_table_i[BW * (sorted_i)];
+        const int32_t sorted_i = sorted_index_i[(rank_i - i)];
+        i_indices[sorted_i] = index_i / index_table_i[sorted_i];
+        index_i %= index_table_i[sorted_i];
     }
 
     for(int32_t j=1; j<=rank_j; j++) {
-        const int32_t sorted_j = sorted_index_j[BW * (rank_j - j)];
-        j_indices[sorted_j] = index_j / index_table_j[BW * (sorted_j)];
-        index_j %= index_table_j[BW * (sorted_j)];
+        const int32_t sorted_j = sorted_index_j[(rank_j - j)];
+        j_indices[sorted_j] = index_j / index_table_j[sorted_j];
+        index_j %= index_table_j[sorted_j];
     }
 
     for(int32_t i=0; i<i_free_indices_length; i++) {
@@ -62,6 +65,7 @@ void index_to_indices (
     int32_t result = 0;
 
     for(int32_t out=0; out<out_rank; out++) {
+
         result += index_table_out[out] * out_indices[out];
     }
 
@@ -126,7 +130,6 @@ void handle_indices_kernel(
     int32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     int32_t j = blockIdx.y * blockDim.y + threadIdx.y;
 
-
 //    int32_t flattened_tid = threadIdx.x + blockDim.x * threadIdx.y;
 
 //    for(int32_t i_cache = 0; i_cache < A_rank; i_cache++) {
@@ -180,7 +183,7 @@ void handle_indices_kernel(
                              B_free_indices_length,
                              index_table_out,
                              out_rank,
-                             output + 32 * j + i);
+                             output + A_indices_length * j + i);
         }
     }
 
@@ -242,15 +245,7 @@ thrust::device_vector<int32_t>  handle_indices(
 }
 
 
-thrust::device_vector<int32_t>  handle_indices(
-        const thrust::device_vector<int32_t> & A_indices,
-        const thrust::device_vector<int32_t> & B_indices,
-        const arma::uvec & A_index_table,
-        const arma::uvec & B_index_table,
-        const arma::umat & contracting_indices
-) {
 
-}
 
 
 }

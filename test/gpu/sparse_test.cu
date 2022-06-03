@@ -52,91 +52,115 @@ TEST_CASE("sparse tensor in gpu") {
 
 
     }
-//
-//    SECTION("sparse matrix transposition") {
-//
-//        const int rank = 2; // Matrix
-//        const arma::uvec dimension = {4, 3}; // 4x3 matrix
-//
-//        torque::SparseTensor<float> tensor(dimension);
-//
-//        CHECK(tensor.query({1,1}) == 0);
-//
-//        //  1  5  9
-//        //  2  6 10
-//        //  3  7 11
-//        //  4  8 12
-//        std::vector<float> a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
-//        const arma::uvec indices = {0,1,2,3,4,5,6,7,8,9,10,11};
-//
-//        tensor.initialize(a.data(), indices);
-//
-//        const arma::uvec permutation = {1,0};
-//
-//        CHECK(tensor.query({1, 2}) == 10);
-//
-//        tensor.soft_transpose(permutation); // Now tensor is 3 x 4 matrix
-//
-//        CHECK(tensor.query({1, 2}) == 7);
-//
-//        // tensor_transposed should have original matrix, 4 x 3 matrix
-//        const auto tensor_transposed = tensor.hard_transpose(permutation);
-//
-//        for(arma::uword i=0; i<3; i++) {
-//            for(arma::uword j=0; j<4; j++) {
-//                CHECK(tensor.query(arma::uvec{i, j}) == tensor_transposed.query(arma::uvec{j, i}));
-//            }
-//        }
-//
-//    }
-//
-//    SECTION("sparse tensor initialization") {
-//        const int rank = 3; // Matrix
-//        const arma::uvec dimension = {2, 2, 3}; // 4x3 matrix
-//
-//        torque::SparseTensor<float> tensor(dimension);
-//
-//        CHECK(tensor.query({1,1,0}) == 0);
-//
-//        std::vector<float> a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
-//        const arma::uvec indices = {0,1,2,3,4,5,6,7,8,9,10,11};
-//
-//        tensor.initialize(a.data(), indices);
-//        CHECK(tensor.query({0,1,2}) == 11);
-//    }
-//
-//    SECTION("sparse tensor transposition") {
-//        const int rank = 3; // Matrix
-//        const arma::uvec dimension = {2, 2, 3}; // 4x3 matrix
-//
-//        std::vector<float> a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
-//        const arma::uvec indices = {0,1,2,3,4,5,6,7,8,9,10,11};
-//
-//        torque::SparseTensor<float> tensor(a.data(), indices,
-//                                           torque::util::generate_index_table(dimension),
-//                                           dimension);
-//
-//        CHECK(tensor.query({0,0,2}) == 9);
-//        CHECK(tensor.query({0,1,2}) == 11);
-//        tensor.soft_transpose({0, 2, 1});
-//        CHECK(tensor.query({0,2,0}) == 9);
-//        CHECK(tensor.query({0,2,1}) == 11);
-//
-//        const auto tensor_another_transpose = tensor.hard_transpose({1,0,2});
-//        CHECK(tensor_another_transpose.query({2, 0, 0}) == 9);
-//        CHECK(tensor_another_transpose.query({2, 0, 1}) == 11);
-//    }
-//
-//    SECTION("scalar") {
-//
-//        torque::SparseTensor<float> tensor(arma::uvec{});
-//
-//        CHECK(tensor.rank == 0);
-//        CHECK(tensor.query({}) == 0);
-//        tensor.modify({}, 1);
-//        CHECK(tensor.query({}) == 1);
-//
-//    }
+
+    SECTION("sparse matrix transposition") {
+
+        const int rank = 2; // Matrix
+        const arma::uvec dimension = {4, 3}; // 4x3 matrix
+
+        torque::gpu::SparseTensor<float> tensor(dimension);
+
+        CHECK(tensor.query({1,1}) == 0);
+
+        //  1  5  9
+        //  2  6 10
+        //  3  7 11
+        //  4  8 12
+        std::vector<float> a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+        const arma::uvec indices = {0,1,2,3,4,5,6,7,8,9,10,11};
+
+        tensor.initialize(a.data(), indices);
+
+        const arma::uvec permutation = {1,0};
+
+        CHECK(tensor.query({1, 2}) == 10);
+
+        tensor.soft_transpose(permutation); // Now tensor is 3 x 4 matrix
+
+        CHECK(tensor.query({1, 2}) == 7);
+
+        // tensor_transposed should have original matrix, 4 x 3 matrix
+        const auto tensor_transposed = tensor.hard_transpose(permutation);
+
+        for(arma::uword i=0; i<3; i++) {
+            for(arma::uword j=0; j<4; j++) {
+                CHECK(tensor.query(arma::uvec{i, j}) == tensor_transposed.query(arma::uvec{j, i}));
+            }
+        }
+
+    }
+
+    SECTION("sparse tensor initialization") {
+        const int rank = 3; // Matrix
+        const arma::uvec dimension = {2, 2, 3}; // 4x3 matrix
+
+        torque::gpu::SparseTensor<float> tensor(dimension);
+
+        CHECK(tensor.query({1,1,0}) == 0);
+
+        std::vector<float> a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+        const arma::uvec indices = {0,1,2,3,4,5,6,7,8,9,10,11};
+
+        tensor.initialize(a.data(), indices);
+        CHECK(tensor.query({0,1,2}) == 11);
+    }
+
+    SECTION("sparse tensor transposition") {
+        const int rank = 3; // Matrix
+        const arma::uvec dimension = {2, 2, 3}; // 4x3 matrix
+
+        std::vector<float> a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+        const arma::uvec indices = {0,1,2,3,4,5,6,7,8,9,10,11};
+
+        torque::gpu::SparseTensor<float> tensor(a.data(), indices,
+                                           torque::util::generate_index_table(dimension),
+                                           dimension);
+
+        CHECK(tensor.query({0,0,2}) == 9);
+        CHECK(tensor.query({0,1,2}) == 11);
+        tensor.soft_transpose({0, 2, 1});
+        CHECK(tensor.query({0,2,0}) == 9);
+        CHECK(tensor.query({0,2,1}) == 11);
+
+        const auto tensor_another_transpose = tensor.hard_transpose({1,0,2});
+        CHECK(tensor_another_transpose.query({2, 0, 0}) == 9);
+        CHECK(tensor_another_transpose.query({2, 0, 1}) == 11);
+    }
+
+    SECTION("scalar") {
+
+        torque::gpu::SparseTensor<float> tensor(arma::uvec{});
+
+        CHECK(tensor.rank == 0);
+        CHECK(tensor.query({}) == 0);
+        tensor.modify({}, 1);
+        CHECK(tensor.query({}) == 1);
+
+    }
+
+    SECTION("Handle indices") {
+
+        const arma::uvec A_indices{0, 1, 2, 3, 4, 5, 6, 7};
+        const arma::uvec B_indices{0, 1};
+        const arma::uvec A_dimension{2, 2, 2};
+        const arma::uvec B_dimension{2};
+        const arma::uvec A_index_table{1, 2, 4};
+        const arma::uvec B_index_table{1};
+
+        const arma::umat contracting_indices{{1, 0}};
+
+        cublasHandle_t handle;
+        cublasCreate(&handle);
+
+        const std::vector<float> A_data{0, 1, 2, 3, 4, 5, 6, 7};
+        const std::vector<float> B_data{0, 1};
+
+        torque::gpu::SparseTensor<float> A{A_data.data(), A_indices, A_index_table, A_dimension};
+        torque::gpu::SparseTensor<float> B{B_data.data(), B_indices, B_index_table, B_dimension};
+
+        const auto raw_result = A.contract(handle, B, contracting_indices);
+
+    }
 //
 //    SECTION("vector contraction") {
 //        const std::vector<float> vec{0,1,2,3,4};
