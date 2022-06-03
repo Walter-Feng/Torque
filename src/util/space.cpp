@@ -1,4 +1,4 @@
-    #include "space.h"
+#include "space.h"
 
 namespace torque {
 namespace util {
@@ -8,8 +8,6 @@ arma::uvec generate_index_table(const arma::uvec & dimension) {
     arma::uvec table(dimension.n_elem);
 
     arma::uword table_index = 1;
-
-    std::cout << dimension << std::endl;
 
     for (arma::uword i = 0; i < dimension.n_elem; i++) {
         table(i) = table_index;

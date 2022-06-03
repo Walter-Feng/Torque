@@ -166,7 +166,7 @@ if(USE_GPU)
 
         src/gpu/sparse.cu
 
-        )
+            )
 endif()
 
 
@@ -190,9 +190,10 @@ add_test(NAME UNITTEST_core
 if(USE_GPU)
     add_executable(test_gpu_tensor
             test/gpu/sparse_test.cu
+
             )
 
-    target_link_libraries(test_gpu_tensor catch2 torque gpu_torque)
+    target_link_libraries(test_gpu_tensor catch2 gpu_torque)
 
     add_test(NAME UNITTEST_gpu
             COMMAND bin/test_gpu_tensor)

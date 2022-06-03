@@ -2,12 +2,13 @@
 
 #include "tensor/sparse.h"
 #include "gpu/sparse.cuh"
+#define ARMA_ALLOW_FAKE_GCC
 
 TEST_CASE("thrust - arma utility function") {
 
     SECTION("vector conversion") {
         arma::uvec test{1,2,3,4,5};
-        const auto converted = torque::util::arma_to_thrust_device<arma::uword>(test);
+        const auto converted = torque::gpu::util::arma_to_thrust_device<arma::uword>(test);
 
         CHECK(converted.size() == 5);
         CHECK(converted[0] == 1);
@@ -18,12 +19,12 @@ TEST_CASE("thrust - arma utility function") {
     SECTION("thrust find") {
         auto vec = thrust::device_vector<int32_t>(std::vector{1,2,2,4,5});
 
-        CHECK(torque::util::thrust_find(vec, 2)(0) == 1);
-        CHECK(torque::util::thrust_find(vec, 2)(1) == 2);
-        CHECK(torque::util::thrust_find(vec, 5)(0) == 4);
-        CHECK(torque::util::thrust_find(vec, 6).n_elem == 0);
+        CHECK(torque::gpu::util::thrust_find(vec, 2)(0) == 1);
+        CHECK(torque::gpu::util::thrust_find(vec, 2)(1) == 2);
+        CHECK(torque::gpu::util::thrust_find(vec, 5)(0) == 4);
+        CHECK(torque::gpu::util::thrust_find(vec, 6).n_elem == 0);
         vec.push_back(6);
-        CHECK(torque::util::thrust_find(vec, 6)(0) == 5);
+        CHECK(torque::gpu::util::thrust_find(vec, 6)(0) == 5);
 
     }
 
@@ -35,8 +36,6 @@ TEST_CASE("sparse tensor in gpu") {
         const int rank = 2; // Matrix
         const arma::uvec dimension{4, 3}; // 4x3 matrix
 
-        const auto b = dimension(0);
-        std::cout << b << std::endl;
         torque::gpu::SparseTensor<float> tensor(dimension);
         const arma::uvec indices = {0,1,2,3,4,5,6,7,8,9,10,11};
 
@@ -50,6 +49,8 @@ TEST_CASE("sparse tensor in gpu") {
 
         tensor.initialize(a.data(), indices);
         CHECK(tensor.query({1,2}) == 10);
+
+
     }
 //
 //    SECTION("sparse matrix transposition") {
