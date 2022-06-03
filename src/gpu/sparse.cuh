@@ -329,7 +329,7 @@ public:
                         &zero, out_pointer, 1);
         }
 
-        return new_indices_raw;
+        return raw_output;
     }
 
     /// Transposition of the tensors according to the permutation, without changing original data
