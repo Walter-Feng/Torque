@@ -138,155 +138,156 @@ TEST_CASE("sparse tensor in gpu") {
 
     }
 
-    SECTION("Handle indices") {
-
-        const arma::uvec A_indices{0, 1, 2, 3, 4, 5, 6, 7};
-        const arma::uvec B_indices{0, 1};
-        const arma::uvec A_dimension{2, 2, 2};
-        const arma::uvec B_dimension{2};
-        const arma::uvec A_index_table{1, 2, 4};
-        const arma::uvec B_index_table{1};
-
-        const arma::umat contracting_indices{{1, 0}};
+    SECTION("vector contraction") {
 
         cublasHandle_t handle;
         cublasCreate(&handle);
 
-        const std::vector<float> A_data{0, 1, 2, 3, 4, 5, 6, 7};
-        const std::vector<float> B_data{0, 1};
+        const std::vector<float> vec{0,1,2,3,4};
+        const arma::uvec indices{0,1,2,3,4};
+        const arma::uvec dimension{5};
 
-        torque::gpu::SparseTensor<float> A{A_data.data(), A_indices, A_index_table, A_dimension};
-        torque::gpu::SparseTensor<float> B{B_data.data(), B_indices, B_index_table, B_dimension};
+        const torque::gpu::SparseTensor<float> tensor_format(vec.data(), indices,
+                                                        torque::util::generate_index_table(dimension),
+                                                        dimension);
+        const auto result =
+                tensor_format.contract(handle, tensor_format, arma::umat({0, 0}));
 
-        const auto raw_result = A.contract(handle, B, contracting_indices);
+        assert(result.to_number() == 30);
+        cublasDestroy(handle);
 
     }
-//
-//    SECTION("vector contraction") {
-//        const std::vector<float> vec{0,1,2,3,4};
-//        const arma::uvec indices{0,1,2,3,4};
-//        const arma::uvec dimension{5};
-//
-//        const torque::SparseTensor<float> tensor_format(vec.data(), indices,
-//                                                        torque::util::generate_index_table(dimension),
-//                                                        dimension);
-//        const auto result =
-//                tensor_format.contract(tensor_format, arma::umat({0, 0}));
-//
-//        assert(result.to_number() == 30);
-//    }
-//
-//    SECTION("matrix multiplication") {
-//        const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
-//        const arma::uvec indices{0, 1, 2, 3, 4, 5, 6, 7, 8};
-//        const arma::uvec dimension{3,3};
-//        const arma::uvec index_table = torque::util::generate_index_table(dimension);
-//
-//        const torque::SparseTensor<float> tensor_format(vec.data(), indices, index_table, {3, 3});
-//
-//        const auto A_squared = tensor_format.contract(tensor_format, arma::umat({1, 0}));
-//
-//        const arma::mat ref_A = arma::mat{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}.t();
-//
-//        const arma::mat ref_A_squared = ref_A * ref_A;
-//
-//        for(arma::uword i=0; i<3; i++) {
-//            for(arma::uword j=0; j<3; j++) {
-//                CHECK(A_squared.query(arma::uvec{i, j}) == ref_A_squared(i, j));
-//            }
-//        }
-//    }
-//
-//    SECTION("matrix inner product") {
-//        const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
-//        const arma::uvec indices{0, 1, 2, 3, 4, 5, 6, 7, 8};
-//        const arma::uvec dimension{3,3};
-//        const arma::uvec index_table = torque::util::generate_index_table(dimension);
-//
-//        const torque::SparseTensor<float> tensor_format(vec.data(), indices,
-//                                                        index_table, dimension);
-//
-//        const auto A_squared =
-//                tensor_format.contract(tensor_format,
-//                                       arma::umat({{1, 0}, {0, 1}}));
-//
-//        const arma::mat ref_A = arma::mat{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}.t();
-//
-//        const double result = arma::accu(ref_A % ref_A.t());
-//
-//        CHECK(A_squared.to_number() == result);
-//    }
-//
-//    SECTION("tensor-vector contraction") {
-//        const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7};
-//        const arma::uvec indices{0, 1, 2, 3, 4, 5, 6, 7};
-//        const arma::uvec tensor_dimension{2,2,2};
-//        const arma::uvec tensor_table = torque::util::generate_index_table(tensor_dimension);
-//
-//        const torque::SparseTensor<float> tensor_format(tensor_data.data(),
-//                                                        indices,
-//                                                        tensor_table,
-//                                                        tensor_dimension);
-//
-//
-//        const std::vector<float> vector{1, 2};
-//        const arma::uvec vector_indices{0, 1};
-//        const arma::uvec vector_dimension{2};
-//        const arma::uvec vector_table = torque::util::generate_index_table(vector_dimension);
-//
-//        const torque::SparseTensor<float> vector_in_tensor(vector.data(),
-//                                                           vector_indices,
-//                                                           vector_table,
-//                                                           {2});
-//
-//        const auto contraction = tensor_format.contract(vector_in_tensor, arma::umat{{0, 0}});
-//
-//        CHECK(contraction.query({0, 0}) == 2);
-//        CHECK(contraction.query({1, 0}) == 8);
-//        CHECK(contraction.query({0, 1}) == 14);
-//        CHECK(contraction.query({1, 1}) == 20);
-//
-//        const auto contraction_2 = tensor_format.contract(vector_in_tensor, arma::umat{{1, 0}});
-//
-//        CHECK(contraction_2.query({0, 0}) == 4);
-//        CHECK(contraction_2.query({1, 0}) == 7);
-//        CHECK(contraction_2.query({0, 1}) == 16);
-//        CHECK(contraction_2.query({1, 1}) == 19);
-//
-//        const auto contraction_3 = tensor_format.contract(vector_in_tensor, arma::umat{{2, 0}});
-//
-//        CHECK(contraction_3.query({1, 0}) == 11);
-//
-//    }
-//
-//    SECTION("tensor-matrix contraction") {
-//        const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-//        const arma::uvec indices{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-//
-//
-//        const arma::uvec tensor_dimension{2,2,3};
-//        const arma::uvec tensor_table = torque::util::generate_index_table(tensor_dimension);
-//
-//        const torque::SparseTensor<float> tensor_format(tensor_data.data(),
-//                                                        indices,
-//                                                        tensor_table,
-//                                                        tensor_dimension);
-//
-//
-//        const std::vector<float> matrix{1, 2, 3, 4};
-//        const arma::uvec matrix_indices{0,1,2,3};
-//
-//        const arma::uvec matrix_dimension{2,2};
-//        const arma::uvec matrix_table = torque::util::generate_index_table(matrix_dimension);
-//
-//        const torque::SparseTensor<float> matrix_in_tensor(matrix.data(), matrix_indices, matrix_table, matrix_dimension); // row vector
-//
-//        const auto contraction = tensor_format.contract(matrix_in_tensor, arma::umat{{0, 1}, {1, 0}});
-//
-//        CHECK(contraction.query({0}) == 19);
-//        CHECK(contraction.query({1}) == 59);
-//        CHECK(contraction.query({2}) == 99);
-//    }
+
+    SECTION("matrix multiplication") {
+        cublasHandle_t handle;
+        cublasCreate(&handle);
+
+        const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
+        const arma::uvec indices{0, 1, 2, 3, 4, 5, 6, 7, 8};
+        const arma::uvec dimension{3,3};
+        const arma::uvec index_table = torque::util::generate_index_table(dimension);
+
+        const torque::gpu::SparseTensor<float> tensor_format(vec.data(), indices, index_table, {3, 3});
+
+        const auto A_squared = tensor_format.contract(handle, tensor_format, arma::umat({1, 0}));
+
+        const arma::mat ref_A_squared{{15, 42, 69}, {18, 54, 90}, {21, 66, 111}};
+
+        for(arma::uword i=0; i<3; i++) {
+            for(arma::uword j=0; j<3; j++) {
+                CHECK(A_squared.query(arma::uvec{i, j}) == ref_A_squared(i, j));
+            }
+        }
+
+        cublasDestroy(handle);
+    }
+
+    SECTION("matrix inner product") {
+        cublasHandle_t handle;
+        cublasCreate(&handle);
+
+        const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
+        const arma::uvec indices{0, 1, 2, 3, 4, 5, 6, 7, 8};
+        const arma::uvec dimension{3,3};
+        const arma::uvec index_table = torque::util::generate_index_table(dimension);
+
+        const torque::gpu::SparseTensor<float> tensor_format(vec.data(), indices,
+                                                        index_table, dimension);
+
+        const auto A_squared =
+                tensor_format.contract(handle, tensor_format,
+                                       arma::umat({{1, 0}, {0, 1}}));
+
+        const arma::mat ref_A = arma::mat{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}.t();
+
+        const double result = arma::accu(ref_A % ref_A.t());
+
+        CHECK(A_squared.to_number() == result);
+
+        cublasDestroy(handle);
+    }
+
+    SECTION("tensor-vector contraction") {
+        cublasHandle_t handle;
+        cublasCreate(&handle);
+
+        const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7};
+        const arma::uvec indices{0, 1, 2, 3, 4, 5, 6, 7};
+        const arma::uvec tensor_dimension{2,2,2};
+        const arma::uvec tensor_table = torque::util::generate_index_table(tensor_dimension);
+
+        const torque::gpu::SparseTensor<float> tensor_format(tensor_data.data(),
+                                                            indices,
+                                                            tensor_table,
+                                                            tensor_dimension);
+
+
+        const std::vector<float> vector{1, 2};
+        const arma::uvec vector_indices{0, 1};
+        const arma::uvec vector_dimension{2};
+        const arma::uvec vector_table = torque::util::generate_index_table(vector_dimension);
+
+        const torque::gpu::SparseTensor<float> vector_in_tensor(vector.data(),
+                                                           vector_indices,
+                                                           vector_table,
+                                                           {2});
+
+        const auto contraction = tensor_format.contract(handle, vector_in_tensor, arma::umat{{0, 0}});
+
+        CHECK(contraction.query({0, 0}) == 2);
+        CHECK(contraction.query({1, 0}) == 8);
+        CHECK(contraction.query({0, 1}) == 14);
+        CHECK(contraction.query({1, 1}) == 20);
+
+        const auto contraction_2 = tensor_format.contract(handle, vector_in_tensor, arma::umat{{1, 0}});
+
+        CHECK(contraction_2.query({0, 0}) == 4);
+        CHECK(contraction_2.query({1, 0}) == 7);
+        CHECK(contraction_2.query({0, 1}) == 16);
+        CHECK(contraction_2.query({1, 1}) == 19);
+
+        const auto contraction_3 = tensor_format.contract(handle, vector_in_tensor, arma::umat{{2, 0}});
+
+        CHECK(contraction_3.query({1, 0}) == 11);
+
+        cublasDestroy(handle);
+
+    }
+
+    SECTION("tensor-matrix contraction") {
+        cublasHandle_t handle;
+        cublasCreate(&handle);
+
+        const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+        const arma::uvec indices{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+
+        const arma::uvec tensor_dimension{2,2,3};
+        const arma::uvec tensor_table = torque::util::generate_index_table(tensor_dimension);
+
+        const torque::gpu::SparseTensor<float> tensor_format(tensor_data.data(),
+                                                        indices,
+                                                        tensor_table,
+                                                        tensor_dimension);
+
+
+        const std::vector<float> matrix{1, 2, 3, 4};
+        const arma::uvec matrix_indices{0,1,2,3};
+
+        const arma::uvec matrix_dimension{2,2};
+        const arma::uvec matrix_table = torque::util::generate_index_table(matrix_dimension);
+
+        const torque::gpu::SparseTensor<float> matrix_in_tensor(matrix.data(), matrix_indices, matrix_table, matrix_dimension); // row vector
+
+        const auto contraction = tensor_format.contract(handle, matrix_in_tensor, arma::umat{{0, 1}, {1, 0}});
+
+        CHECK(contraction.query({0}) == 19);
+        CHECK(contraction.query({1}) == 59);
+        CHECK(contraction.query({2}) == 99);
+
+        cublasDestroy(handle);
+
+    }
 
 
 }

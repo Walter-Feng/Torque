@@ -158,7 +158,7 @@ public:
     inline
     T to_number() const {
         assert(this->rank == 0);
-        return *(this->data.get());
+        return this->data[0];
 
     }
 
