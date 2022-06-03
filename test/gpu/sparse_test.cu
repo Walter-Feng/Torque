@@ -17,7 +17,7 @@ TEST_CASE("thrust - arma utility function") {
     }
 
     SECTION("thrust find") {
-        auto vec = thrust::device_vector<int32_t>(std::vector{1,2,2,4,5});
+        auto vec = thrust::device_vector<int32_t>(std::vector<int32_t>{1,2,2,4,5});
 
         CHECK(torque::gpu::util::thrust_find(vec, 2)(0) == 1);
         CHECK(torque::gpu::util::thrust_find(vec, 2)(1) == 2);
