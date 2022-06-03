@@ -140,6 +140,12 @@ if(USE_GPU)
 
     endif()
 
+    add_library(gpu_torque SHARED
+
+            src/gpu/sparse.cu
+
+            )
+
     if(USE_CUTENSOR)
         if(NOT TARGET cutensor)
             add_library(cutensor SHARED IMPORTED)
@@ -157,16 +163,12 @@ if(USE_GPU)
                     INTERFACE_INCLUDE_DIRECTORIES "${CUTENSOR_ROOT}/include")
         endif()
 
-        include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include)
+        include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include )
 
         message("-- cuTENSOR linked.")
     endif()
 
-    add_library(gpu_torque SHARED
-
-            src/gpu/sparse.cu
-
-            )
+    target_link_libraries(gpu_torque ${ARMADILLO_LIBRARIES})
 
     if(USE_CUTENSOR)
         target_link_libraries(gpu_torque cutensor CUDA::cublas CUDA::cudart)
@@ -191,8 +193,6 @@ add_executable(test_tensor
 
 target_link_libraries(test_tensor catch2 torque)
 
-add_test(NAME UNITTEST_core
-        COMMAND bin/test_tensor)
 
 if(USE_GPU)
     add_executable(test_gpu_tensor
@@ -200,10 +200,15 @@ if(USE_GPU)
 
             )
 
-    target_link_libraries(test_gpu_tensor catch2 gpu_torque)
+    target_link_libraries(test_gpu_tensor catch2 torque gpu_torque)
 
-    add_test(NAME UNITTEST_gpu
-            COMMAND bin/test_gpu_tensor)
+
+    add_executable(cpu_gpu_benchmark
+            test/gpu/cpu_gpu_comparison.cu
+            )
+
+    target_link_libraries(cpu_gpu_benchmark catch2 torque gpu_torque)
+
 endif()
 
 

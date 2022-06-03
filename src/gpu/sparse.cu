@@ -21,20 +21,20 @@ void index_to_indices (
         int32_t index_i,
         const int32_t * index_table_i,
         const int32_t * sorted_index_i,
-        const int32_t rank_i,
+        const uint32_t rank_i,
         int32_t index_j,
         const int32_t * index_table_j,
         const int32_t * sorted_index_j,
-        const int32_t rank_j,
+        const uint32_t rank_j,
         const int32_t * i_contracting_indices,
         const int32_t * j_contracting_indices,
-        const int32_t contracting_ndim,
+        const uint32_t contracting_ndim,
         const int32_t * i_free_indices,
-        const int32_t i_free_indices_length,
+        const uint32_t i_free_indices_length,
         const int32_t * j_free_indices,
-        const int32_t j_free_indices_length,
+        const uint32_t j_free_indices_length,
         const int32_t * index_table_out,
-        const int32_t out_rank,
+        const uint32_t out_rank,
         int32_t * indices_output
         ) {
 
@@ -109,60 +109,9 @@ void handle_indices_kernel(
         int32_t * output
         ) {
 
-//    __shared__ int32_t cached_A_table[MAX_RANK];
-//    __shared__ int32_t cached_B_table[MAX_RANK];
-//    __shared__ int32_t cached_A_sort_index[MAX_RANK];
-//    __shared__ int32_t cached_B_sort_index[MAX_RANK];
-//
-//    __shared__ int32_t cached_A_converted_indices[MAX_RANK];
-//    __shared__ int32_t cached_B_converted_indices[MAX_RANK];
-//
-//    __shared__ int32_t cached_i_contracting_indices[MAX_RANK];
-//    __shared__ int32_t cached_j_contracting_indices[MAX_RANK];
-//
-//    __shared__ int32_t cached_i_free_indices[MAX_RANK];
-//    __shared__ int32_t cached_j_free_indices[MAX_RANK];
-//
-//
-//
-//    __shared__ int32_t cached_result[BW * BW];
 
-    int32_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    int32_t j = blockIdx.y * blockDim.y + threadIdx.y;
-
-//    int32_t flattened_tid = threadIdx.x + blockDim.x * threadIdx.y;
-
-//    for(int32_t i_cache = 0; i_cache < A_rank; i_cache++) {
-//        cached_A_table[i_cache] = A_index_table[i_cache];
-//        cached_A_sort_index[i_cache] = A_sorted_index[i_cache];
-//    }
-//
-//    for(int32_t i_cache = 0; i_cache < B_rank; i_cache++) {
-//        cached_B_table[i_cache] = B_index_table[i_cache];
-//        cached_B_sort_index[i_cache] = B_sorted_index[i_cache];
-//    }
-//    __syncthreads();
-
-    // copy the indices to shared memory
-//    if(flattened_tid < A_rank) {
-//         cached_A_table[flattened_tid] = A_index_table[flattened_tid];
-//    } else {
-//        if(flattened_tid < 2 * A_rank) {
-//            cached_A_sort_index[flattened_tid - A_rank] = A_sorted_index[flattened_tid - A_rank];
-//        } else {
-//            if(flattened_tid < 2 * A_rank + B_rank) {
-//                cached_B_table[flattened_tid - 2 * A_rank] = B_index_table[flattened_tid - 2 * A_rank];
-//            } else {
-//                if (flattened_tid < 2 * A_rank + 2 * B_rank) {
-//                    cached_B_sort_index[flattened_tid - 2 * A_rank - B_rank] = B_sorted_index[flattened_tid - 2 * A_rank - B_rank];
-//                }
-//            }
-//        }
-//    }
-
-//    __syncthreads();
-
-//    index_to_indices(A_indices[thread_index], )
+    uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t j = blockIdx.y * blockDim.y + threadIdx.y;
 
     if(i < A_indices_length) {
         if(j < B_indices_length) {

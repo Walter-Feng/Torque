@@ -138,8 +138,8 @@ public:
     }
 
     inline
-    SparseTensor(const thrust::device_vector<T> & source_data,
-                 const thrust::device_vector<int32_t> & indices,
+    SparseTensor(thrust::device_vector<T> && source_data,
+                 thrust::device_vector<int32_t> && indices,
                  const arma::uvec & index_table,
                  const arma::uvec & dimension) {
 
@@ -149,9 +149,9 @@ public:
 
         this->dimension = dimension;
         rank = dimension.n_elem;
-        this->indices = indices;
+        this->indices = std::move(indices);
         this->index_table = index_table;
-        this->data = source_data;
+        this->data = std::move(source_data);
     }
 
     ///
@@ -349,7 +349,7 @@ public:
         reduced_indices.erase(reduced_indices.begin());
         reduced_data.erase(reduced_data.begin());
 
-        return {reduced_data, reduced_indices, new_dimension_table, new_dimension};
+        return {std::move(reduced_data), std::move(reduced_indices), new_dimension_table, new_dimension};
     }
 
     /// Transposition of the tensors according to the permutation, without changing original data
