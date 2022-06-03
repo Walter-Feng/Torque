@@ -200,6 +200,7 @@ public:
         arma::uvec that_dimension_copy = tensor.dimension;
         this_dimension_copy.shed_rows(this_contracting_indices);
         that_dimension_copy.shed_rows(that_contracting_indices);
+
         const arma::uvec new_dimension = arma::join_vert(this_dimension_copy, that_dimension_copy);
         const arma::uvec new_dimension_table = util::generate_index_table(new_dimension);
 
