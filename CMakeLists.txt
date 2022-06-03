@@ -157,18 +157,22 @@ if(USE_GPU)
                     INTERFACE_INCLUDE_DIRECTORIES "${CUTENSOR_ROOT}/include")
         endif()
 
-        add_library(gpu_torque SHARED
-
-                src/gpu/sparse.cu
-
-                )
-
         include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include)
-        target_link_libraries(gpu_torque cutensor CUDA::cublas CUDA::cudart)
+
         message("-- cuTENSOR linked.")
     endif()
 
+    add_library(gpu_torque SHARED
 
+            src/gpu/sparse.cu
+
+            )
+
+    if(USE_CUTENSOR)
+        target_link_libraries(gpu_torque cutensor CUDA::cublas CUDA::cudart)
+    else()
+        target_link_libraries(gpu_torque CUDA::cublas CUDA::cudart)
+    endif()
 
 endif()
 
