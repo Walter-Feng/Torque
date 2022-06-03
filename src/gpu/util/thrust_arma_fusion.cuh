@@ -10,8 +10,8 @@ namespace torque {
 namespace gpu {
     namespace util {
 
-        template<typename T>
-        thrust::device_vector <T> arma_to_thrust_device(const arma::Col<T> &vector) {
+        template<typename T, typename U>
+        thrust::device_vector<T> arma_to_thrust_device(const arma::Col<U> &vector) {
             const auto std_vector = arma::conv_to<std::vector<T>>::from(vector);
 
             return thrust::device_vector<T>(std_vector);

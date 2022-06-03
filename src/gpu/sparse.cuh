@@ -58,15 +58,15 @@ namespace sparse {
         return handle_indices(
                 A_indices,
                 B_indices,
-                gpu::util::arma_to_thrust_device(A_index_table),
-                gpu::util::arma_to_thrust_device(A_sorted_index),
-                gpu::util::arma_to_thrust_device(B_index_table),
-                gpu::util::arma_to_thrust_device(B_sorted_index),
-                gpu::util::arma_to_thrust_device(A_contracting_indices),
-                gpu::util::arma_to_thrust_device(B_contracting_indices),
-                gpu::util::arma_to_thrust_device(A_free_indices),
-                gpu::util::arma_to_thrust_device(B_free_indices),
-                gpu::util::arma_to_thrust_device(out_index_table)
+                gpu::util::arma_to_thrust_device<int32_t>(A_index_table),
+                gpu::util::arma_to_thrust_device<int32_t>(A_sorted_index),
+                gpu::util::arma_to_thrust_device<int32_t>(B_index_table),
+                gpu::util::arma_to_thrust_device<int32_t>(B_sorted_index),
+                gpu::util::arma_to_thrust_device<int32_t>(A_contracting_indices),
+                gpu::util::arma_to_thrust_device<int32_t>(B_contracting_indices),
+                gpu::util::arma_to_thrust_device<int32_t>(A_free_indices),
+                gpu::util::arma_to_thrust_device<int32_t>(B_free_indices),
+                gpu::util::arma_to_thrust_device<int32_t>(out_index_table)
         );
     }
 
@@ -386,7 +386,7 @@ public:
 
         }
 
-        return SparseTensor<T>(std::move(new_data), gpu::util::arma_to_thrust_device(new_indices), new_table, new_dimension);
+        return SparseTensor<T>(std::move(new_data), gpu::util::arma_to_thrust_device<int32_t>(new_indices), new_table, new_dimension);
 
     }
 
