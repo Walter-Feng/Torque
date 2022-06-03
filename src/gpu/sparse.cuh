@@ -121,12 +121,7 @@ public:
             }
 
             if(source_data) {
-                cudaMemcpy(thrust::raw_pointer_cast(
-                        this->data.data()),
-                           source_data,
-                           indices.n_elem * sizeof(T),
-                           cudaMemcpyHostToDevice);
-
+                thrust::copy(source_data, source_data + indices.n_elem, this->data.begin());
             } else {
                 throw Error("Source data not allocated!");
             }
@@ -134,8 +129,7 @@ public:
             this->data = thrust::device_vector<T>(1);
 
             if(source_data) {
-                cudaMemcpy(thrust::raw_pointer_cast(this->data.data()),source_data, sizeof(T),
-                           cudaMemcpyHostToDevice);
+                thrust::copy(source_data, source_data + 1, this->data.begin());
             } else {
                 throw Error("Source data not allocated!");
             }
@@ -144,24 +138,20 @@ public:
     }
 
     inline
-    explicit SparseTensor(thrust::device_vector<T> && source_data,
-                          const thrust::device_vector<int32_t> & indices,
-                          const arma::uvec & index_table,
-                          const arma::uvec & dimension) {
+    SparseTensor(const thrust::device_vector<T> & source_data,
+                 const thrust::device_vector<int32_t> & indices,
+                 const arma::uvec & index_table,
+                 const arma::uvec & dimension) {
 
         if(source_data.empty()) {
             throw Error("Source data not allocated!");
         }
 
         this->dimension = dimension;
-
         rank = dimension.n_elem;
-
         this->indices = indices;
-
         this->index_table = index_table;
-
-        this->data = std::move(source_data);
+        this->data = source_data;
     }
 
     ///
@@ -265,7 +255,7 @@ public:
     /// \param tensor another tensor to be contracted with
     /// \param contracting_indices the corresponding two indices for the dimensions to contract
     /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
-    thrust::device_vector<T>
+    SparseTensor<T>
     contract(cublasHandle_t handle, const SparseTensor<T> & tensor, const arma::umat & contracting_indices) const {
 
         const arma::uvec this_contracting_indices = contracting_indices.col(0);
@@ -286,20 +276,24 @@ public:
         const arma::uvec new_dimension = arma::join_vert(this_dimension_copy, that_dimension_copy);
         const arma::uvec new_dimension_table = torque::util::generate_index_table(new_dimension);
 
-        const auto new_indices_raw = sparse::handle_indices(this->indices, tensor.indices,
-                                                            this->dimension, tensor.dimension,
-                                                            this->index_table, tensor.index_table,
-                                                            this_contracting_indices, that_contracting_indices,
-                                                            new_dimension_table);
+        auto new_indices_raw = sparse::handle_indices(this->indices, tensor.indices,
+                                                      this->dimension, tensor.dimension,
+                                                      this->index_table, tensor.index_table,
+                                                      this_contracting_indices, that_contracting_indices,
+                                                      new_dimension_table);
 
         thrust::device_vector<T> raw_output =
                 thrust::device_vector<T>(this->indices.size() * tensor.indices.size());
 
         static_assert(
-                std::is_same<T, float>::value
-                || std::is_same<T, double>::value
-                || std::is_same<T, half>::value,
+                std::is_same<T, float>::value,
                 "GPU-enabled sparse tensor contraction can only support float, double and half");
+
+//        static_assert(
+//                std::is_same<T, float>::value
+//                || std::is_same<T, double>::value
+//                || std::is_same<T, half>::value,
+//                "GPU-enabled sparse tensor contraction can only support float, double and half");
 
         T one = 1;
         T zero = 0;
@@ -307,7 +301,6 @@ public:
         const T * this_pointer = thrust::raw_pointer_cast(this->data.data());
         const T * that_pointer = thrust::raw_pointer_cast(tensor.data.data());
         T * out_pointer = thrust::raw_pointer_cast(raw_output.data());
-
 
         cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
                     this_pointer, this->indices.size(),
@@ -335,7 +328,28 @@ public:
 //                        &zero, out_pointer, 1);
 //        }
 
-        return raw_output;
+
+        thrust::device_vector<int32_t> reduced_indices(new_indices_raw.size());
+        thrust::device_vector<T> reduced_data(raw_output.size());
+
+        thrust::sort_by_key(new_indices_raw.begin(), new_indices_raw.end(), raw_output.begin());
+
+        const auto reduced_end =
+                thrust::reduce_by_key(new_indices_raw.begin(),
+                                      new_indices_raw.end(),
+                                      raw_output.begin(),
+                                      reduced_indices.begin(),
+                                      reduced_data.begin());
+
+
+
+        reduced_indices.erase(reduced_end.first, reduced_indices.end());
+        reduced_data.erase(reduced_end.second, reduced_data.end());
+
+        reduced_indices.erase(reduced_indices.begin());
+        reduced_data.erase(reduced_data.begin());
+
+        return {reduced_data, reduced_indices, new_dimension_table, new_dimension};
     }
 
     /// Transposition of the tensors according to the permutation, without changing original data
@@ -369,10 +383,7 @@ public:
 
         thrust::device_vector<T> new_data(total_elem);
 
-        cudaMemcpy(thrust::raw_pointer_cast(new_data.data()),
-                   thrust::raw_pointer_cast(this->data.data()),
-                   total_elem * sizeof(T),
-                   cudaMemcpyDeviceToDevice);
+        thrust::copy(this->data.begin(), this->data.end(), new_data.begin());
 
         // It is possible that this tensor has been soft transposed, i.e.
         // the index table may not be in sorted order.
