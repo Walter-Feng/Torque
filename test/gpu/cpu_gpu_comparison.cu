@@ -156,5 +156,10 @@ TEST_CASE("CPU vs GPU") {
 
         std::cout <<  "GPU time (sparse contraction): " << gpu_time_contraction << " milliseconds" << std::endl;
 
+        for(int i=0; i<10; i++) {
+          CHECK(std::abs(dense_cpu_contraction.query({i}) - contraction.query({i})) < 5e-5);
+          CHECK(std::abs(cpu_contraction.query({i}) - contraction.query({i})) < 5e-5);
+          CHECK(std::abs(cpu_block_sparse_contraction.query({i}) - contraction.query({i})) < 5e-5);
+        }
     }
 }
