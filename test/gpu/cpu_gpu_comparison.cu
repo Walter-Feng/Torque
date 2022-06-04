@@ -21,22 +21,33 @@ TEST_CASE("CPU vs GPU") {
         cublasHandle_t handle;
         cublasCreate(&handle);
 
-        std::vector<float> tensor_data(24000);
-        memset(tensor_data.data(), 0, sizeof(float) * 24000);
+        std::vector<float> tensor_data(3000);
+        std::vector<float> dense_tensor_data(24000);
+        memset(tensor_data.data(), 0, sizeof(float) * 3000);
+        memset(dense_tensor_data.data(), 0, sizeof(float) * 24000);
 
         arma::uvec indices(3000);
 
+        const arma::uvec tensor_dimension{60, 20, 20};
+        const arma::uvec tensor_table = torque::util::generate_index_table(tensor_dimension);
+        const arma::uvec subblock_dimension{30, 10, 10};
+        const arma::uvec subblock_table = torque::util::generate_index_table(subblock_dimension);
+
         for(arma::uword i=0; i<3000; i++) {
-            tensor_data[i] = arma::randu();
-            indices(i) = i;
+            const float rand_number = arma::randu();
+            tensor_data[i] = rand_number;
+
+            const arma::uvec original_indices = torque::util::index_to_indices(i, subblock_table);
+
+            const arma::uword original_index = arma::sum(original_indices % tensor_table);
+
+            dense_tensor_data[original_index] = rand_number;
+            indices(i) = original_index;
         }
 
 
-        const arma::uvec tensor_dimension{60, 20, 20};
-        const arma::uvec tensor_table = torque::util::generate_index_table(tensor_dimension);
-
         const torque::DenseTensor<float>
-                cpu_dense_tensor_format(tensor_data.data(), tensor_dimension);
+                cpu_dense_tensor_format(dense_tensor_data.data(), tensor_dimension);
 
         const torque::SparseTensor<float> cpu_tensor_format(tensor_data.data(),
                                                             indices,
@@ -55,21 +66,31 @@ TEST_CASE("CPU vs GPU") {
                                                              tensor_table,
                                                              tensor_dimension);
 
-        std::vector<float> matrix(1200);
-        memset(matrix.data(), 0, sizeof(float) * 1200);
+        std::vector<float> dense_matrix(1200);
+        std::vector<float> matrix(300);
+        memset(dense_matrix.data(), 0, sizeof(float) * 1200);
+        memset(matrix.data(), 0, sizeof(float) * 300);
         arma::uvec matrix_indices(300);
-
-        for(arma::uword i=0; i<300; i++) {
-            matrix[i] = arma::randu();
-            matrix_indices(i) = i;
-        }
-
 
         const arma::uvec matrix_dimension{60,20};
         const arma::uvec matrix_table = torque::util::generate_index_table(matrix_dimension);
+        const arma::uvec submatrix_dimension{30, 10};
+        const arma::uvec submatrix_table = torque::util::generate_index_table(submatrix_dimension);
+        for(arma::uword i=0; i<300; i++) {
+
+            const float rand_number = arma::randu();
+
+            const arma::uvec original_indices = torque::util::index_to_indices(i, submatrix_table);
+
+            const arma::uword original_index = arma::sum(original_indices % matrix_table);
+
+            dense_matrix[original_index] = rand_number;
+            matrix_indices(i) = original_index;
+            matrix[i] = rand_number;
+        }
 
         const torque::DenseTensor<float>
-                cpu_dense_matrix_format(matrix.data(), matrix_dimension);
+                cpu_dense_matrix_format(dense_matrix.data(), matrix_dimension);
         const torque::SparseTensor<float> cpu_matrix_in_tensor(matrix.data(), matrix_indices, matrix_table, matrix_dimension);
         const torque::BlockSparseTensor<float>
                 cpu_block_sparse_matrix_in_tensor(matrix.data(),
