@@ -12,6 +12,81 @@
 
 namespace torque {
 
+template<typename T>
+arma::Mat<T> sort_into_matrix(const T * block,
+                              const arma::uvec & dimension,
+                              const arma::uvec & table,
+                              const arma::uvec & col_indices) {
+
+  const arma::uvec old_table_sort_index = arma::sort_index(table);
+
+  arma::uvec new_dimension = dimension;
+  const arma::uvec dimension_to_col = new_dimension.rows(col_indices);
+
+  new_dimension.shed_rows(col_indices);
+
+  new_dimension = arma::join_vert(new_dimension, dimension_to_col);
+
+  new_dimension.print("new_dimension");
+  const arma::uword row_n_dim = dimension.n_elem - col_indices.n_elem;
+
+  const arma::uvec new_table = util::generate_index_table(new_dimension);
+  const arma::uword n_row =
+      row_n_dim ?
+      arma::prod(new_dimension.rows(0, row_n_dim - 1)) :
+      1;
+
+  const arma::uword n_col = arma::prod(new_dimension) / n_row;
+
+  const arma::uvec col_indices_sort_index = arma::sort_index(col_indices);
+  const arma::uvec sorted_col_indices = col_indices(col_indices_sort_index);
+
+  arma::Mat<T> result(n_row, n_col);
+
+  for(arma::uword j=0; j<result.n_elem; j++) {
+    old_table_sort_index.print("old_table_sort_index");
+
+    arma::uvec old_indices = util::index_to_indices(j, new_table);
+    const arma::uvec to_col_indices = old_indices.rows(n_row, n_row + n_col - 1);
+    old_indices.shed_rows(n_row, n_row + n_col - 1);
+
+    for(arma::uword k=0; k<old_indices.n_elem; k++) {
+      old_indices.insert_rows(sorted_col_indices(k), 1);
+
+    }
+
+    //TODO Finish the number assignment to old_indices
+
+
+
+    arma::uvec new_indices = old_indices;
+    const arma::uvec indices_to_col = new_indices.rows(col_indices);
+    new_indices.shed_rows(col_indices);
+
+    new_indices = arma::join_vert(new_indices, indices_to_col);
+
+    std::cout << "result size: " << arma::size(result) << std::endl;
+
+    const arma::uvec intermediate_index = new_indices % new_table;
+
+    const arma::uword i_row =
+        row_n_dim ?
+        arma::sum(intermediate_index.rows(0, row_n_dim - 1)) :
+        1;
+
+    new_indices.print("new_indices");
+    new_table.print("new_table");
+    intermediate_index.rows(0, row_n_dim - 1).print("intermediate.i_row");
+
+    const arma::uword i_col = arma::sum(intermediate_index.rows(row_n_dim, dimension.n_elem - 1));
+
+    result(i_row, i_col) = block[arma::sum(old_indices % table)];
+  }
+
+  return result;
+
+}
+
 struct
 ContractionInfo {
     arma::uvec block_indices; // The selection of tensor blocks with non-trivial contribution
@@ -21,6 +96,11 @@ ContractionInfo {
     arma::umat contraction_begin_points; // Starting point of the reduced subblock for contraction
     arma::umat contraction_end_points; // End point of the reduced subblock for contraction
     arma::umat contraction_tables; // index table for the contraction that helps iterating over the contracting elements
+
+    arma::umat A_begin_points;
+    arma::umat A_end_points;
+    arma::umat B_begin_points;
+    arma::umat B_end_points;
 };
 
 ContractionInfo
@@ -46,6 +126,12 @@ block_in_range(const arma::umat & contracting_indices,
     arma::umat min_end_indices_in_contracting_dimension(arma::size(contracting_indices.n_rows,
                                                                    B_n_blocks), arma::fill::zeros);
 
+  const arma::uvec A_sort_index = arma::sort_index(A_contracting_indices);
+  const arma::uvec B_sort_index = arma::sort_index(B_contracting_indices);
+
+  const arma::uvec sorted_A_contracting_indices = A_contracting_indices(A_sort_index);
+  const arma::uvec sorted_B_contracting_indices = B_contracting_indices(B_sort_index);
+
     // Check whether it has non-trivial intervals for each block
     arma::Col<int> true_false_list(B_n_blocks, arma::fill::zeros);
 
@@ -55,7 +141,8 @@ block_in_range(const arma::umat & contracting_indices,
 
         const arma::uvec max_begin_indices = arma::max(A_begin_point.rows(A_contracting_indices),
                                                        i_begin_point.rows(B_contracting_indices));
-        const arma::uvec min_end_indices = arma::min(A_end_point.rows(A_contracting_indices), i_end_point.rows(B_contracting_indices));
+        const arma::uvec min_end_indices = arma::min(A_end_point.rows(A_contracting_indices),
+                                                     i_end_point.rows(B_contracting_indices));
 
         if(arma::all(max_begin_indices <= min_end_indices)) {
             true_false_list(i) = 1;
@@ -79,8 +166,33 @@ block_in_range(const arma::umat & contracting_indices,
 
         const arma::umat new_begin_points =
                 new_rank ?
-                arma::join_vert(arma::repmat(new_begin_point_from_A, 1, non_trivial_block_index.n_elem),new_begin_points_from_B) :
+                arma::join_vert(arma::repmat(new_begin_point_from_A, 1,
+                                             non_trivial_block_index.n_elem),new_begin_points_from_B) :
                 arma::umat{};
+
+        arma::umat new_begin_points_for_A =
+            arma::repmat(new_begin_point_from_A, 1, non_trivial_block_index.n_elem);
+
+        arma::umat new_begin_points_for_B = new_begin_points_from_B;
+
+
+      for(arma::uword k=0; k<A_contracting_indices.n_elem; k++) {
+        new_begin_points_for_A.insert_rows(sorted_A_contracting_indices(k), 1);
+        new_begin_points_for_B.insert_rows(sorted_B_contracting_indices(k), 1);
+      }
+
+
+      const arma::umat non_trivial_max_begin_indices =
+          max_begin_indices_in_contracting_dimension.cols(non_trivial_block_index);
+      const arma::umat non_trivial_min_end_indices =
+          min_end_indices_in_contracting_dimension.cols(non_trivial_block_index);
+
+      for(arma::uword k=0; k<A_contracting_indices.n_elem; k++) {
+        new_begin_points_for_A.row(A_contracting_indices(k)) =
+            non_trivial_max_begin_indices.row(k);
+        new_begin_points_for_B.row(A_contracting_indices(k)) =
+            non_trivial_max_begin_indices.row(k);
+      }
 
         arma::uvec new_end_point_from_A = A_end_point;
         new_end_point_from_A.shed_rows(A_contracting_indices);
@@ -90,29 +202,56 @@ block_in_range(const arma::umat & contracting_indices,
 
         const arma::umat new_end_points =
                 new_rank ?
-                arma::join_vert(arma::repmat(new_end_point_from_A, 1, non_trivial_block_index.n_elem), new_end_points_from_B) :
+                arma::join_vert(arma::repmat(new_end_point_from_A, 1,
+                                             non_trivial_block_index.n_elem), new_end_points_from_B) :
                 arma::umat{};
 
         arma::umat contracting_tables(arma::size(max_begin_indices_in_contracting_dimension));
 
         for(arma::uword i=0; i<non_trivial_block_index.n_elem; i++) {
             contracting_tables.col(i) = util::generate_index_table(
-                    min_end_indices_in_contracting_dimension.col(non_trivial_block_index(i))
-                     - max_begin_indices_in_contracting_dimension.col(non_trivial_block_index(i))
+                non_trivial_min_end_indices.col(i)
+                     - non_trivial_max_begin_indices.col(i)
                      + arma::ones<arma::uvec>(contracting_indices.n_rows));
 
         }
 
+      arma::umat new_end_points_for_A =
+          arma::repmat(new_begin_point_from_A, 1, non_trivial_block_index.n_elem);
+
+      arma::umat new_end_points_for_B = new_begin_points_from_B;
+
+
+      for(arma::uword k=0; k<A_contracting_indices.n_elem; k++) {
+        new_end_points_for_A.insert_rows(sorted_A_contracting_indices(k), 1);
+        new_end_points_for_B.insert_rows(sorted_B_contracting_indices(k), 1);
+      }
+
+      for(arma::uword k=0; k<A_contracting_indices.n_elem; k++) {
+        new_end_points_for_A.row(A_contracting_indices(k)) =
+            non_trivial_min_end_indices.row(k);
+        new_end_points_for_B.row(A_contracting_indices(k)) =
+            non_trivial_min_end_indices.row(k);
+      }
+
         return {non_trivial_block_index,
                 new_begin_points,
                 new_end_points,
-                max_begin_indices_in_contracting_dimension.cols(non_trivial_block_index),
-                min_end_indices_in_contracting_dimension.cols(non_trivial_block_index),
-                contracting_tables
+                non_trivial_max_begin_indices,
+                non_trivial_min_end_indices,
+                contracting_tables,
+                new_begin_points_for_A,
+                new_end_points_for_A,
+                new_begin_points_for_B,
+                new_end_points_for_B
                 };
 
     } else {
         return {arma::uvec{},
+                arma::umat{},
+                arma::umat{},
+                arma::umat{},
+                arma::umat{},
                 arma::umat{},
                 arma::umat{},
                 arma::umat{},
@@ -454,7 +593,15 @@ public:
             const ContractionInfo contracting_info = block_in_range(contracting_indices, A_begin_point, A_end_point,
                                                                     tensor.begin_points, tensor.end_points);
 
+            const arma::umat A_subblock_begin_points = contracting_info.A_begin_points;
+            const arma::umat A_subblock_end_points = contracting_info.A_end_points;
+            const arma::umat A_subblock_dimension =
+                A_subblock_end_points - A_subblock_begin_points + arma::ones<arma::umat>(arma::size(A_subblock_begin_points));
 
+          const arma::umat B_subblock_begin_points = contracting_info.B_begin_points;
+          const arma::umat B_subblock_end_points = contracting_info.B_end_points;
+          const arma::umat B_subblock_dimension =
+              B_subblock_end_points - B_subblock_begin_points + arma::ones<arma::umat>(arma::size(B_subblock_begin_points));
 
             for(arma::uword j_block=0; j_block<contracting_info.block_indices.n_elem; j_block++) {
                 const arma::uword B_block_index = contracting_info.block_indices(j_block);
@@ -473,59 +620,48 @@ public:
 
 
                 if(result.rank > 0) {
-                    const arma::uvec j_begin_point = contracting_info.new_begin_points.col(j_block);
-                    const arma::uvec j_end_point = contracting_info.new_end_points.col(j_block);
+                  const arma::uvec j_begin_point = contracting_info.new_begin_points.col(j_block);
+                  const arma::uvec j_end_point = contracting_info.new_end_points.col(j_block);
 
-                    const arma::uvec j_dim = j_end_point - j_begin_point + arma::ones<arma::uvec>(j_begin_point.n_elem);
-                    const arma::uvec j_new_table = util::generate_index_table(j_dim);
+                  const arma::uvec j_dim = j_end_point - j_begin_point + arma::ones<arma::uvec>(j_begin_point.n_elem);
+                  const arma::uvec j_new_table = util::generate_index_table(j_dim);
 
-                    auto * j_block_data =
-                            (std::common_type_t<T, U> *) calloc(arma::prod(j_dim), sizeof(std::common_type_t<T, U>));
+                  const arma::uword this_block_offset =
+                      arma::sum(
+                          (A_subblock_begin_points.col(j_block) - A_begin_point)
+                            % this->index_tables.col(i))
+                      + this->block_offsets(i);
 
-                    for(arma::uword subblock_index=0; subblock_index<arma::prod(j_dim); subblock_index++) {
+                  const arma::uword that_block_offset =
+                      arma::sum((B_subblock_begin_points.col(j_block) - B_begin_point)
+                        % tensor.index_tables.col(B_block_index))
+                      + tensor.block_offsets(B_block_index);
 
-                        const arma::uvec new_dimension_indices = util::index_to_indices(subblock_index, j_new_table);
+                  const arma::Mat<T> this_block_rep =
+                      sort_into_matrix(this->data.get() + this_block_offset,
+                                       A_subblock_dimension.col(j_block),
+                                       this->index_tables.col(j_block),
+                                       this_contracting_indices);
 
-                        arma::uvec this_dimension_indices = new_dimension_indices.rows(0, this->rank - contract_dimension.n_elem - 1);
-                        arma::uvec that_dimension_indices =
-                                this->rank - contract_dimension.n_elem <= result.rank - 1 ?
-                                new_dimension_indices.rows(this->rank - contract_dimension.n_elem, result.rank - 1) :
-                                arma::uvec{};
+                  const arma::Mat<T> that_block_rep =
+                      sort_into_matrix(tensor.data.get() + that_block_offset,
+                                       B_subblock_dimension.col(j_block),
+                                       tensor.index_tables.col(j_block),
+                                       that_contracting_indices);
 
-                        for(arma::uword k=0; k<sorted_this_contracting_indices.n_elem; k++) {
-                            this_dimension_indices.insert_rows(sorted_this_contracting_indices(k), 1);
-                            that_dimension_indices.insert_rows(sorted_that_contracting_indices(k), 1);
-                        }
+                  that_block_rep.raw_print("that_block_rep");
 
-                        for(arma::uword contract_index=0; contract_index<arma::prod(j_contract_dim); contract_index++) {
-                            const arma::uvec relative_contraction_indices = util::index_to_indices(contract_index, j_contracting_table);
+                  std::cout << "debugging" << std::endl;
+                  const arma::Mat<T> multiplication =
+                      this_block_rep * that_block_rep.t();
 
-                            const arma::uvec contraction_indices = relative_contraction_indices + j_contracting_start;
+                  const std::vector<T> vectorised_data =
+                      arma::conv_to<std::vector<T>>::from(arma::vectorise(multiplication));
 
-                            // assign the summation indices to the original tensor indices
-                            for(arma::uword k=0; k<contraction_indices.n_elem; k++) {
-
-                                this_dimension_indices(this_contracting_indices(k)) =
-                                        contraction_indices(k) - A_begin_point_in_contracting_dimension(k);
-                                that_dimension_indices(that_contracting_indices(k)) =
-                                        contraction_indices(k) - B_begin_point_in_contracting_dimension(k);
-                            }
-
-                            assert(this_dimension_indices.n_elem == this->rank);
-                            assert(that_dimension_indices.n_elem == tensor.rank);
-
-                            const std::common_type_t<T, U>
-                                    elem = this->data.get()[arma::sum(this->index_tables.col(i) % this_dimension_indices)
-                                                            + this->block_offsets(i)]
-                                            * tensor.data.get()[
-                                                    arma::sum(tensor.index_tables.col(B_block_index) % that_dimension_indices)
-                                                    + tensor.block_offsets(B_block_index)];
-
-                            j_block_data[subblock_index] += elem;
-                        }
-                    }
-
-                    result.append_block(j_block_data, j_begin_point, j_end_point, j_new_table);
+                  result.append_block(vectorised_data.data(),
+                                      j_begin_point,
+                                      j_end_point,
+                                      j_new_table);
 
                 } else { // Full contraction, generating a scalar
                     for (arma::uword contract_index = 0; contract_index < arma::prod(j_contract_dim); contract_index++) {

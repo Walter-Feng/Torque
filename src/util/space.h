@@ -49,7 +49,7 @@ arma::uvec index_to_indices(const arma::uword i, const arma::uvec & table, const
 
     for(arma::uword j = table.n_elem - 1; j > 0; j--) {
         indices(sort_index(j)) = temp_i / table(sort_index(j));
-        temp_i = temp_i % table(sort_index(j));
+        temp_i %= table(sort_index(j));
     }
 
     indices(sort_index(0)) = temp_i;
