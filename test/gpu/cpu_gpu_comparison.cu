@@ -224,6 +224,10 @@ const double rand_number = arma::randu();
 matrix[i] = rand_number;
 }
 
+const torque::gpu::SparseTensor<double> matrix_in_tensor(matrix.data(),
+                                                        matrix_indices,
+                                                        matrix_table,
+                                                        matrix_dimension);
 
 #define START_TIMER() {               \
       cudaEventCreate(&start);      \
@@ -243,7 +247,7 @@ matrix[i] = rand_number;
 START_TIMER();
 
 const auto contraction = tensor_format.contract(handle,
-                                                tensor_format,
+                                                matrix_in_tensor,
                                                 arma::umat{{0, 0}, {1, 1}});
 cublasDestroy(handle);
 STOP_RECORD_TIMER(gpu_time_contraction);
