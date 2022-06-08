@@ -208,6 +208,23 @@ const torque::gpu::SparseTensor<double> tensor_format(tensor_data.data(),
                                                      tensor_table,
                                                      tensor_dimension);
 
+std::vector<double> dense_matrix(324);
+std::vector<double> matrix(324);
+memset(dense_matrix.data(), 0, sizeof(double) * 324);
+memset(matrix.data(), 0, sizeof(double) * 324);
+arma::uvec matrix_indices = {0,19,38,57,76,95,114,133,152,171,190,209,228,247,266,285,304,323};
+
+const arma::uvec matrix_dimension{18, 18};
+const arma::uvec matrix_table = torque::util::generate_index_table(matrix_dimension);
+
+
+for(arma::uword i=0; i<matrix_indices.n_elem; i++) {
+
+const double rand_number = arma::randu();
+matrix[i] = rand_number;
+}
+
+
 #define START_TIMER() {               \
       cudaEventCreate(&start);      \
       cudaEventCreate(&stop);       \
@@ -222,12 +239,12 @@ const torque::gpu::SparseTensor<double> tensor_format(tensor_data.data(),
       cudaEventDestroy(stop);                   \
     }
 
+
 START_TIMER();
 
 const auto contraction = tensor_format.contract(handle,
                                                 tensor_format,
                                                 arma::umat{{0, 0}, {1, 1}});
-
 cublasDestroy(handle);
 STOP_RECORD_TIMER(gpu_time_contraction);
 
