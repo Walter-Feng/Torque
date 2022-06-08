@@ -194,7 +194,6 @@ tensor_data[i] = rand_number;
 dense_tensor_data[indices[i]] = rand_number;
 }
 
-
 const torque::DenseTensor<float>
     cpu_dense_tensor_format(dense_tensor_data.data(), tensor_dimension);
 
@@ -231,16 +230,6 @@ const auto dense_cpu_contraction =
 STOP_RECORD_TIMER(cpu_time_contraction);
 
 std::cout <<  "CPU time (dense contraction): " << cpu_time_contraction << " milliseconds" << std::endl;
-
-
-START_TIMER();
-
-const auto cpu_contraction =
-    cpu_tensor_format.contract(cpu_tensor_format,arma::umat{{0, 0}, {1, 1}});
-
-STOP_RECORD_TIMER(cpu_time_contraction);
-
-std::cout <<  "CPU time (sparse contraction): " << cpu_time_contraction << " milliseconds" << std::endl;
 
 START_TIMER();
 
