@@ -298,11 +298,6 @@ public:
         const T * that_pointer = thrust::raw_pointer_cast(tensor.data.data());
         T * out_pointer = thrust::raw_pointer_cast(raw_output.data());
 
-        cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
-                    this_pointer, this->indices.size(),
-                    that_pointer, tensor.indices.size(),
-                    &zero, out_pointer, this->indices.size());
-//
         if constexpr(std::is_same<T, float>::value) {
             cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
                         this_pointer, this->indices.size(),
