@@ -286,14 +286,10 @@ public:
                 thrust::device_vector<T>(this->indices.size() * tensor.indices.size());
 
         static_assert(
-                std::is_same<T, float>::value,
+                std::is_same<T, float>::value
+                || std::is_same<T, double>::value
+                || std::is_same<T, half>::value,
                 "GPU-enabled sparse tensor contraction can only support float, double and half");
-
-//        static_assert(
-//                std::is_same<T, float>::value
-//                || std::is_same<T, double>::value
-//                || std::is_same<T, half>::value,
-//                "GPU-enabled sparse tensor contraction can only support float, double and half");
 
         T one = 1;
         T zero = 0;
