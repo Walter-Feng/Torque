@@ -20,7 +20,6 @@ arma::Mat<T> sort_into_matrix(const T * block,
 
   const arma::uvec old_table_sort_index = arma::sort_index(table);
 
-  dimension.print("dimension");
   arma::uvec new_dimension = dimension;
   const arma::uvec dimension_to_col = new_dimension.rows(col_indices);
 
@@ -45,8 +44,6 @@ arma::Mat<T> sort_into_matrix(const T * block,
 
   arma::Mat<T> result(n_row, n_col);
 
-  std::cout << "Matrix size: " << arma::size(result) << std::endl;
-
   for(arma::uword j=0; j<result.n_elem; j++) {
     const arma::uvec new_indices = util::index_to_indices(j, new_table);
     arma::uvec old_indices = new_indices;
@@ -63,23 +60,15 @@ arma::Mat<T> sort_into_matrix(const T * block,
       old_indices(col_indices(k)) = new_indices(row_n_dim + k);
     }
 
-
-    new_indices.print("new_indices");
-
     const arma::uvec intermediate_index = new_indices % new_table;
-
-    intermediate_index.print("intermediate_index");
 
     const arma::uword i_row =
         row_n_dim ?
         arma::sum(intermediate_index.rows(0, row_n_dim - 1)) :
-        1;
+        0;
     const arma::uword i_col =
         arma::sum(intermediate_index.rows(row_n_dim, dimension.n_elem - 1))
         / n_row;
-
-    std::cout << "i_row: " << i_row << std::endl;
-    std::cout << "i_col: " << i_col << std::endl;
 
     result(i_row, i_col) = block[arma::sum(old_indices % table)];
   }
@@ -603,10 +592,6 @@ public:
           const arma::umat B_subblock_dimension =
               B_subblock_end_points - B_subblock_begin_points + arma::ones<arma::umat>(arma::size(B_subblock_begin_points));
 
-          A_subblock_begin_points.print("A_subblock_begin_points");
-          B_subblock_begin_points.print("B_subblock_begin_points");
-          A_subblock_end_points.print("A_subblock_end_points");
-          B_subblock_end_points.print("B_subblock_end_points");
             for(arma::uword j_block=0; j_block<contracting_info.block_indices.n_elem; j_block++) {
                 const arma::uword B_block_index = contracting_info.block_indices(j_block);
 
@@ -652,9 +637,6 @@ public:
                                        B_subblock_dimension.col(j_block),
                                        tensor.index_tables.col(j_block),
                                        that_contracting_indices);
-
-                  this_block_rep.print("this_block_rep");
-                  that_block_rep.print("that_block_rep");
 
                   const arma::Mat<T> multiplication =
                       this_block_rep * that_block_rep.t();

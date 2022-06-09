@@ -189,26 +189,26 @@ SECTION("tensor-vector contraction") {
 
 }
 
-//SECTION("tensor-matrix contraction") {
-//        const std::vector<float> tensor_data1{0, 1, 2, 3};
-//        const std::vector<float> tensor_data2{4, 5, 6, 7};
-//        const std::vector<float> tensor_data3{8, 9, 10, 11};
-//
-//        torque::BlockSparseTensor<float> tensor_format({2, 2, 3});
-//        tensor_format.append_block(tensor_data3.data(), {0, 0, 2}, {1, 1, 2}, {1, 2, 4});
-//        tensor_format.append_block(tensor_data2.data(), {0, 0, 1}, {1, 1, 1}, {1, 2, 4});
-//        tensor_format.append_block(tensor_data1.data(), {0, 0, 0}, {1, 1, 0}, {1, 2, 4});
-//
-//        const std::vector<float> matrix{1, 2, 3, 4};
-//
-//        torque::BlockSparseTensor<float> matrix_in_tensor({2, 2}); // row vector
-//
-//        matrix_in_tensor.append_block(matrix.data(), {0, 0}, {1, 1}, {1, 2});
-//        const auto contraction = tensor_format.contract(matrix_in_tensor, arma::umat{{0, 1}, {1, 0}});
-//
-//        CHECK(contraction.query({0}) == 19);
-//        CHECK(contraction.query({1}) == 59);
-//        CHECK(contraction.query({2}) == 99);
-//}
+SECTION("tensor-matrix contraction") {
+        const std::vector<float> tensor_data1{0, 1, 2, 3};
+        const std::vector<float> tensor_data2{4, 5, 6, 7};
+        const std::vector<float> tensor_data3{8, 9, 10, 11};
+
+        torque::BlockSparseTensor<float> tensor_format({2, 2, 3});
+        tensor_format.append_block(tensor_data3.data(), {0, 0, 2}, {1, 1, 2}, {1, 2, 4});
+        tensor_format.append_block(tensor_data2.data(), {0, 0, 1}, {1, 1, 1}, {1, 2, 4});
+        tensor_format.append_block(tensor_data1.data(), {0, 0, 0}, {1, 1, 0}, {1, 2, 4});
+
+        const std::vector<float> matrix{1, 2, 3, 4};
+
+        torque::BlockSparseTensor<float> matrix_in_tensor({2, 2}); // row vector
+
+        matrix_in_tensor.append_block(matrix.data(), {0, 0}, {1, 1}, {1, 2});
+        const auto contraction = tensor_format.contract(matrix_in_tensor, arma::umat{{0, 1}, {1, 0}});
+
+        CHECK(contraction.query({0}) == 19);
+        CHECK(contraction.query({1}) == 59);
+        CHECK(contraction.query({2}) == 99);
+}
 
 }
