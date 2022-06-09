@@ -20,6 +20,7 @@ arma::Mat<T> sort_into_matrix(const T * block,
 
   const arma::uvec old_table_sort_index = arma::sort_index(table);
 
+  dimension.print("dimension");
   arma::uvec new_dimension = dimension;
   const arma::uvec dimension_to_col = new_dimension.rows(col_indices);
 
@@ -27,8 +28,9 @@ arma::Mat<T> sort_into_matrix(const T * block,
 
   new_dimension = arma::join_vert(new_dimension, dimension_to_col);
 
-  new_dimension.print("new_dimension");
-  const arma::uword row_n_dim = dimension.n_elem - col_indices.n_elem;
+  const arma::uword col_n_dim = col_indices.n_elem;
+  const arma::uword row_n_dim = dimension.n_elem - col_n_dim;
+
 
   const arma::uvec new_table = util::generate_index_table(new_dimension);
   const arma::uword n_row =
@@ -43,42 +45,41 @@ arma::Mat<T> sort_into_matrix(const T * block,
 
   arma::Mat<T> result(n_row, n_col);
 
+  std::cout << "Matrix size: " << arma::size(result) << std::endl;
+
   for(arma::uword j=0; j<result.n_elem; j++) {
-    old_table_sort_index.print("old_table_sort_index");
+    const arma::uvec new_indices = util::index_to_indices(j, new_table);
+    arma::uvec old_indices = new_indices;
 
-    arma::uvec old_indices = util::index_to_indices(j, new_table);
-    const arma::uvec to_col_indices = old_indices.rows(n_row, n_row + n_col - 1);
-    old_indices.shed_rows(n_row, n_row + n_col - 1);
+    const arma::uvec to_col_indices = old_indices.rows(row_n_dim,
+                                                       row_n_dim + col_n_dim - 1);
+    old_indices.shed_rows(row_n_dim, row_n_dim + col_n_dim - 1);
 
-    for(arma::uword k=0; k<old_indices.n_elem; k++) {
+    for(arma::uword k=0; k<col_indices.n_elem; k++) {
       old_indices.insert_rows(sorted_col_indices(k), 1);
-
     }
 
-    //TODO Finish the number assignment to old_indices
+    for(arma::uword k=0; k<col_indices.n_elem; k++) {
+      old_indices(col_indices(k)) = new_indices(row_n_dim + k);
+    }
 
 
-
-    arma::uvec new_indices = old_indices;
-    const arma::uvec indices_to_col = new_indices.rows(col_indices);
-    new_indices.shed_rows(col_indices);
-
-    new_indices = arma::join_vert(new_indices, indices_to_col);
-
-    std::cout << "result size: " << arma::size(result) << std::endl;
+    new_indices.print("new_indices");
 
     const arma::uvec intermediate_index = new_indices % new_table;
+
+    intermediate_index.print("intermediate_index");
 
     const arma::uword i_row =
         row_n_dim ?
         arma::sum(intermediate_index.rows(0, row_n_dim - 1)) :
         1;
+    const arma::uword i_col =
+        arma::sum(intermediate_index.rows(row_n_dim, dimension.n_elem - 1))
+        / n_row;
 
-    new_indices.print("new_indices");
-    new_table.print("new_table");
-    intermediate_index.rows(0, row_n_dim - 1).print("intermediate.i_row");
-
-    const arma::uword i_col = arma::sum(intermediate_index.rows(row_n_dim, dimension.n_elem - 1));
+    std::cout << "i_row: " << i_row << std::endl;
+    std::cout << "i_col: " << i_col << std::endl;
 
     result(i_row, i_col) = block[arma::sum(old_indices % table)];
   }
@@ -181,7 +182,6 @@ block_in_range(const arma::umat & contracting_indices,
         new_begin_points_for_B.insert_rows(sorted_B_contracting_indices(k), 1);
       }
 
-
       const arma::umat non_trivial_max_begin_indices =
           max_begin_indices_in_contracting_dimension.cols(non_trivial_block_index);
       const arma::umat non_trivial_min_end_indices =
@@ -190,7 +190,7 @@ block_in_range(const arma::umat & contracting_indices,
       for(arma::uword k=0; k<A_contracting_indices.n_elem; k++) {
         new_begin_points_for_A.row(A_contracting_indices(k)) =
             non_trivial_max_begin_indices.row(k);
-        new_begin_points_for_B.row(A_contracting_indices(k)) =
+        new_begin_points_for_B.row(B_contracting_indices(k)) =
             non_trivial_max_begin_indices.row(k);
       }
 
@@ -217,9 +217,9 @@ block_in_range(const arma::umat & contracting_indices,
         }
 
       arma::umat new_end_points_for_A =
-          arma::repmat(new_begin_point_from_A, 1, non_trivial_block_index.n_elem);
+          arma::repmat(new_end_point_from_A, 1, non_trivial_block_index.n_elem);
 
-      arma::umat new_end_points_for_B = new_begin_points_from_B;
+      arma::umat new_end_points_for_B = new_end_points_from_B;
 
 
       for(arma::uword k=0; k<A_contracting_indices.n_elem; k++) {
@@ -230,7 +230,7 @@ block_in_range(const arma::umat & contracting_indices,
       for(arma::uword k=0; k<A_contracting_indices.n_elem; k++) {
         new_end_points_for_A.row(A_contracting_indices(k)) =
             non_trivial_min_end_indices.row(k);
-        new_end_points_for_B.row(A_contracting_indices(k)) =
+        new_end_points_for_B.row(B_contracting_indices(k)) =
             non_trivial_min_end_indices.row(k);
       }
 
@@ -603,6 +603,10 @@ public:
           const arma::umat B_subblock_dimension =
               B_subblock_end_points - B_subblock_begin_points + arma::ones<arma::umat>(arma::size(B_subblock_begin_points));
 
+          A_subblock_begin_points.print("A_subblock_begin_points");
+          B_subblock_begin_points.print("B_subblock_begin_points");
+          A_subblock_end_points.print("A_subblock_end_points");
+          B_subblock_end_points.print("B_subblock_end_points");
             for(arma::uword j_block=0; j_block<contracting_info.block_indices.n_elem; j_block++) {
                 const arma::uword B_block_index = contracting_info.block_indices(j_block);
 
@@ -649,9 +653,9 @@ public:
                                        tensor.index_tables.col(j_block),
                                        that_contracting_indices);
 
-                  that_block_rep.raw_print("that_block_rep");
+                  this_block_rep.print("this_block_rep");
+                  that_block_rep.print("that_block_rep");
 
-                  std::cout << "debugging" << std::endl;
                   const arma::Mat<T> multiplication =
                       this_block_rep * that_block_rep.t();
 
