@@ -286,14 +286,10 @@ public:
                 thrust::device_vector<T>(this->indices.size() * tensor.indices.size());
 
         static_assert(
-                std::is_same<T, float>::value,
+                std::is_same<T, float>::value
+                || std::is_same<T, double>::value
+                || std::is_same<T, half>::value,
                 "GPU-enabled sparse tensor contraction can only support float, double and half");
-
-//        static_assert(
-//                std::is_same<T, float>::value
-//                || std::is_same<T, double>::value
-//                || std::is_same<T, half>::value,
-//                "GPU-enabled sparse tensor contraction can only support float, double and half");
 
         T one = 1;
         T zero = 0;
@@ -302,31 +298,26 @@ public:
         const T * that_pointer = thrust::raw_pointer_cast(tensor.data.data());
         T * out_pointer = thrust::raw_pointer_cast(raw_output.data());
 
-        cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
-                    this_pointer, this->indices.size(),
-                    that_pointer, tensor.indices.size(),
-                    &zero, out_pointer, this->indices.size());
-//
-//        if constexpr(std::is_same<T, float>::value) {
-//            cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
-//                        this_pointer, this->indices.size(),
-//                        that_pointer, tensor.indices.size(),
-//                        &zero, out_pointer, this->indices.size());
-//        }
-//
-//        if constexpr(std::is_same<T, double>::value) {
-//            cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
-//                        this_pointer, 1,
-//                        that_pointer, 1,
-//                        &zero, out_pointer, 1);
-//        }
-//
-//        if constexpr(std::is_same<T, half>::value) {
-//            cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
-//                        this_pointer, 1,
-//                        that_pointer, 1,
-//                        &zero, out_pointer, 1);
-//        }
+        if constexpr(std::is_same<T, float>::value) {
+            cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
+                        this_pointer, this->indices.size(),
+                        that_pointer, tensor.indices.size(),
+                        &zero, out_pointer, this->indices.size());
+        }
+
+        if constexpr(std::is_same<T, double>::value) {
+            cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
+                        this_pointer, this->indices.size(),
+                        that_pointer, tensor.indices.size(),
+                        &zero, out_pointer, this->indices.size());
+        }
+
+        if constexpr(std::is_same<T, half>::value) {
+            cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, this->indices.size(), tensor.indices.size(), 1, &one,
+                        this_pointer, this->indices.size(),
+                        that_pointer, tensor.indices.size(),
+                        &zero, out_pointer, this->indices.size());
+        }
 
 
         thrust::device_vector<int32_t> reduced_indices(new_indices_raw.size());
