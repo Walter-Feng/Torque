@@ -176,6 +176,84 @@ if(USE_GPU)
         target_link_libraries(gpu_torque CUDA::cublas CUDA::cudart)
     endif()
 
+
+    option(HAVE_BLOCK_SPARSE "Have Block Sparse module" OFF)
+
+    if(HAVE_BLOCK_SPARSE)
+
+        ## cutt library ##
+
+#        include(ExternalProject)
+#
+#        ExternalProject_Add(
+#                cutt
+#                GIT_REPOSITORY https://github.com/Jittor/cutt.git
+#                GIT_TAG main
+#                PREFIX ${CMAKE_CURRENT_BINARY_DIR}
+#                INSTALL_COMMAND ""
+#        )
+#
+#        set(CUTT_PREFIX_PATH "${CMAKE_CURRENT_BINARY_DIR}/src")
+#        set(CUTT_BINARY_PATH "${CUTT_PREFIX_PATH}/cutt-build")
+#
+#        set(CUTT_LIB_INCLUDE "${CUTT_PREFIX_PATH}/cutt/include")
+#
+#        # Hack to make it work, otherwise INTERFACE_INCLUDE_DIRECTORIES will not be propagated
+#        file(MAKE_DIRECTORY ${CUTT_LIB_INCLUDE})
+#
+#        add_library(libcutt IMPORTED SHARED PRIVATE)
+#        add_dependencies(libcutt cutt)
+#
+#        set_target_properties(libxgboost PROPERTIES
+#                "IMPORTED_LOCATION" "${XGBOOST_BINARY_PATH}/liblibxgboost.dylib"
+#                "INTERFACE_INCLUDE_DIRECTORIES" "${XGBOOST_BINARY_INCLUDE}")
+
+
+#        add_library(cutt SHARED IMPORTED)
+#        set(CUTT_LIBRARY_NAME "libcutt.so")
+#
+#        set_target_properties(cutt PROPERTIES
+#                IMPORTED_LOCATION "${CUTT_ROOT}/${LIB_DIR}/${CUTT_LIBRARY_NAME}")
+#
+
+#
+#        find_path(CUTT_INCLUDE_DIR
+#                NAMES cutt.h
+#                PATHS $ENV{ProgramFiles}/cutt/include)
+#        find_path(CUTT_LIBRARY_DIRS NAMES "libcutt.so" PATHS lib)
+#        message("" ${CUTT_INCLUDE_DIR})
+#
+#        target_include_directories(gpu_torque PUBLIC ${CUTT_INCLUDE_DIR})
+#        target_link_libraries(gpu_torque cutt)
+#        message("-- cuTT linked.")
+
+        target_sources(gpu_torque PUBLIC src/gpu/block_sparse.cu)
+
+        set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+
+        find_package(
+                CUTT
+                REQUIRED
+        )
+
+        message(${CUTT_INCLUDE_DIR})
+
+        if (${CUTT_FOUND})
+            message("Found CUTT Library,")
+            message("     CUTT_LIBRARIES   : " ${CUTT_LIBRARIES})
+            message("     CUTT_INCLUDE_DIRS: " ${CUTT_INCLUDE_DIRS})
+
+            include_directories(SYSTEM ${CUTT_INCLUDE_DIRS})
+            target_link_libraries(gpu_torque ${CUTT_LIBRARIES})
+        endif ()
+
+
+
+    endif()
+
+
+
+
 endif()
 
 
@@ -201,6 +279,15 @@ if(USE_GPU)
             )
 
     target_link_libraries(test_gpu_tensor catch2 torque gpu_torque)
+
+
+    add_executable(test_gpu_block_sparse
+            test/gpu/block_sparse.cu
+
+            )
+
+    target_link_libraries(test_gpu_block_sparse catch2 torque gpu_torque)
+
 
 
     add_executable(cpu_gpu_benchmark
