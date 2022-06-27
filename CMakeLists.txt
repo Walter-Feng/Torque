@@ -209,6 +209,11 @@ if(USE_GPU)
 
     target_link_libraries(cpu_gpu_benchmark catch2 torque gpu_torque)
 
+    add_executable(peps_benchmark
+            test/gpu/peps_test.cu
+            )
+
+    target_link_libraries(peps_benchmark catch2 torque gpu_torque)
 endif()
 
 
