@@ -5,6 +5,8 @@
 #include "tensor/block_sparse.h"
 #include "gpu/sparse.cuh"
 
+#include <cuda_profiler_api.h>
+
 #define ARMA_ALLOW_FAKE_GCC
 
 TEST_CASE("PEPS practial tensor") {
@@ -72,6 +74,7 @@ const torque::gpu::SparseTensor<double> matrix_in_tensor(matrix.data(),
                                                          matrix_table,
                                                          matrix_dimension);
 
+cudaProfilerStart();
 #define START_TIMER() {               \
       cudaEventCreate(&start);      \
       cudaEventCreate(&stop);       \
@@ -92,6 +95,9 @@ START_TIMER();
 const auto contraction = tensor_format.contract(handle,
                                                 matrix_in_tensor,
                                                 arma::umat{{0, 0}, {1, 1}});
+
+cudaProfilerStop();
+
 cublasDestroy(handle);
 STOP_RECORD_TIMER(gpu_time_contraction);
 
