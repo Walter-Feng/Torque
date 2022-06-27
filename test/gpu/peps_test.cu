@@ -19,10 +19,6 @@ cudaEvent_t stop;
 float cpu_time_contraction = -1;
 float gpu_time_contraction = -1;
 
-
-cublasHandle_t handle;
-cublasCreate(&handle);
-
 std::vector<double> tensor_data(5627);
 std::vector<double> dense_tensor_data(40000);
 memset(tensor_data.data(), 0, sizeof(double) * 5627);
@@ -89,6 +85,8 @@ cudaProfilerStart();
       cudaEventDestroy(stop);                   \
     }
 
+    cublasHandle_t handle;
+    cublasCreate(&handle);
 
 START_TIMER();
 
@@ -96,13 +94,18 @@ const auto contraction = tensor_format.contract(handle,
                                                 matrix_in_tensor,
                                                 arma::umat{{0, 0}, {1, 1}});
 
-cudaProfilerStop();
-
-cublasDestroy(handle);
-STOP_RECORD_TIMER(gpu_time_contraction);
+    STOP_RECORD_TIMER(gpu_time_contraction);
 
 std::cout <<  "GPU time (sparse contraction): " <<
-              gpu_time_contraction << " milliseconds" << std::endl;
+          gpu_time_contraction << " milliseconds" << std::endl;
+
+    cublasDestroy(handle);
+
+cudaProfilerStop();
+
+
+
+
 
 }
 }
