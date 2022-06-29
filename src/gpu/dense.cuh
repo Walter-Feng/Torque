@@ -343,20 +343,27 @@ cudaDataType_t cutensor_data_type() {
 
             cutensorContractionDescriptor_t desc;
 
-            std::cout << "this_mode: " << std::endl;
+            std::cout << "this_mode: " ;
             for(int i=0; i<this_mode.size(); i++) {
                 std::cout << this_mode[i] << " ";
             }
 
-            std::cout << "that_mode: " << std::endl;
+            std::cout << std::endl;
+
+            std::cout << "that_mode: ";
             for(int i=0; i<this_mode.size(); i++) {
                 std::cout << that_mode[i] << " ";
             }
 
-            std::cout << "result_mode: " << std::endl;
+            std::cout << std::endl;
+
+            std::cout << "result_mode: ";
             for(int i=0; i<result_mode.size(); i++) {
                 std::cout << result_mode[i] << " ";
             }
+
+            std::cout << std::endl;
+
             HANDLE_ERROR( cutensorInitContractionDescriptor( &handle,
                                                              &desc,
                                                              &this_descriptor, this_mode.data(), this_alignmentRequirement,
