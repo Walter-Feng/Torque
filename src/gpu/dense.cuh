@@ -442,7 +442,7 @@ cudaDataType_t cutensor_data_type() {
             }
 
             cuttHandle plan;
-            cuttCheck(cuttPlan(&plan, this->rank, dim_in_cutt, permutation_in_cutt, sizeof(T), 0));
+            cuttCheck(cuttPlan(&plan, this->rank, dim_in_cutt.data(), permutation_in_cutt, sizeof(T), 0));
 
             cuttCheck(cuttExecute(plan,
                       (void *) static_cast<void *>(thrust::raw_pointer_cast(this->data.data())),
