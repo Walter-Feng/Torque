@@ -318,21 +318,103 @@ cudaDataType_t cutensor_data_type() {
             printf("Query best alignment requirement for our pointers\n");
 
 
-            arma::ivec total(this->rank + tensor.rank);
+            std::vector<int> total(this->rank + tensor.rank);
             for(int i=0; i<this->rank + tensor.rank; i++) {
-                total(i) = i;
+                total[i] = i;
             }
             std::vector<int> this_mode(this->rank);
-            for(int i=0; i<this->rank; i++)
+            std::vector<int> that_mode(tensor.rank);
+
+            memcpy(this_mode.data(), total.data(), sizeof(int) * this->rank);
+            memcpy(that_mode.data(), total.data() + this->rank, sizeof(int) * tensor.rank);
+
+            for(int i=0; i<this_contracting_indices.n_elem; i++) {
+                this_mode[this_contracting_indices(i)] = -i;
+                that_mode[that_contracting_indices(i)] = -i;
+                total[this_contracting_indices(i)] = 0;
+                total[this->rank + that_contracting_indices(i)] = 0;
+            }
+
+            const auto result_mode =
+                    arma::conv_to<std::vector<int>>::from(arma::nonzeros(arma::Col<int>(total)));
 
             cutensorContractionDescriptor_t desc;
             HANDLE_ERROR( cutensorInitContractionDescriptor( &handle,
                                                              &desc,
-                                                             &this_descriptor, modeA.data(), alignmentRequirementA,
-                                                             &descB, modeB.data(), alignmentRequirementB,
-                                                             &descC, modeC.data(), alignmentRequirementC,
-                                                             &descC, modeC.data(), alignmentRequirementC,
-                                                             typeCompute) );
+                                                             &this_descriptor, this_mode.data(), this_alignmentRequirement,
+                                                             &that_descriptor, that_mode.data(), that_alignmentRequirement,
+                                                             &result_descriptor, result_mode.data(), result_alignmentRequirement,
+                                                             &result_descriptor, result_mode.data(), result_alignmentRequirement,
+                                                             cutensor_compute_type<T>()) );
+
+            printf("Initialize contraction descriptor\n");
+
+            cutensorContractionFind_t find;
+            HANDLE_ERROR( cutensorInitContractionFind(
+                    &handle, &find,
+                    CUTENSOR_ALGO_DEFAULT) );
+
+            printf("Initialize settings to find algorithm\n");
+
+
+            // Query workspace
+            size_t worksize = 0;
+            HANDLE_ERROR( cutensorContractionGetWorkspace(&handle,
+                                                          &desc,
+                                                          &find,
+                                                          CUTENSOR_WORKSPACE_RECOMMENDED, &worksize ) );
+
+            // Allocate workspace
+            void *work = nullptr;
+            if(worksize > 0)
+            {
+                if( cudaSuccess != cudaMalloc(&work, worksize) ) // This is optional!
+                {
+                    work = nullptr;
+                    worksize = 0;
+                }
+            }
+
+            printf("Query recommended workspace size and allocate it\n");
+
+            /* ***************************** */
+
+            // Create Contraction Plan
+            cutensorContractionPlan_t plan;
+            HANDLE_ERROR( cutensorInitContractionPlan(&handle,
+                                                      &plan,
+                                                      &desc,
+                                                      &find,
+                                                      worksize) );
+
+            printf("Create plan for contraction\n");
+
+            /* ***************************** */
+
+            cutensorStatus_t err;
+
+            // Execute the tensor contraction
+            err = cutensorContraction(&handle,
+                                      &plan,
+                                      (void*)&one,
+                                      thrust::raw_pointer_cast(this->data.data()),
+                                      thrust::raw_pointer_cast(tensor.data.data()),
+                                      (void*)&zero,
+                                      thrust::raw_pointer_cast(result.data()),
+                                      thrust::raw_pointer_cast(result.data()),
+                                      work, worksize, 0 /* stream */);
+            cudaDeviceSynchronize();
+
+            // Check for errors
+            if(err != CUTENSOR_STATUS_SUCCESS)
+            {
+                printf("ERROR: %s\n", cutensorGetErrorString(err));
+            }
+
+            printf("Execute contraction from plan\n");
+
+            return DenseTensor<T>(std::move(result), new_dimension);
+
         }
 
         /// Transposition of the tensors according to the permutation, creating new object with new alignment of data.
