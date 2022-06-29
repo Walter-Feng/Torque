@@ -342,6 +342,21 @@ cudaDataType_t cutensor_data_type() {
                     arma::conv_to<std::vector<int>>::from(arma::nonzeros(arma::Col<int>(total)));
 
             cutensorContractionDescriptor_t desc;
+
+            std::cout << "this_mode: " << std::endl;
+            for(int i=0; i<this_mode.size(); i++) {
+                std::cout << this_mode[i] << " ";
+            }
+
+            std::cout << "that_mode: " << std::endl;
+            for(int i=0; i<this_mode.size(); i++) {
+                std::cout << that_mode[i] << " ";
+            }
+
+            std::cout << "result_mode: " << std::endl;
+            for(int i=0; i<result_mode.size(); i++) {
+                std::cout << result_mode[i] << " ";
+            }
             HANDLE_ERROR( cutensorInitContractionDescriptor( &handle,
                                                              &desc,
                                                              &this_descriptor, this_mode.data(), this_alignmentRequirement,
