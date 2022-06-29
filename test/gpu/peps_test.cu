@@ -1,5 +1,7 @@
 #include <catch.hpp>
 
+#define ARMA_ALLOW_FAKE_GCC
+
 #include "tensor/dense.h"
 #include "tensor/sparse.h"
 #include "tensor/block_sparse.h"

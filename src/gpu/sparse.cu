@@ -2,7 +2,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/generate.h>
 #include <iostream>
-#ifndef ARMA_ALLOW_FAKE_GCC
+
 #define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
 
@@ -200,4 +200,4 @@ thrust::device_vector<int32_t>  handle_indices(
 }
 }
 }
-#endif
+

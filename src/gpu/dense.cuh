@@ -1,6 +1,8 @@
 #ifndef TORQUE_GPU_DENSE_CUH
 #define TORQUE_GPU_DENSE_CUH
 
+#define ARMA_ALLOW_FAKE_GCC
+
 #include <armadillo>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -120,7 +122,7 @@ cudaDataType_t cutensor_data_type() {
         inline
         explicit DenseTensor(thrust::device_vector<T> &&source_data, const arma::uvec &dimension) {
 
-            if (!source_data) {
+            if (!source_data.empty()) {
                 throw Error("Source data not allocated!");
             }
 
@@ -346,7 +348,7 @@ cudaDataType_t cutensor_data_type() {
                                                              &that_descriptor, that_mode.data(), that_alignmentRequirement,
                                                              &result_descriptor, result_mode.data(), result_alignmentRequirement,
                                                              &result_descriptor, result_mode.data(), result_alignmentRequirement,
-                                                             cutensor_compute_type<T>()) );
+                                                             compute_type) );
 
             printf("Initialize contraction descriptor\n");
 
@@ -422,7 +424,7 @@ cudaDataType_t cutensor_data_type() {
         /// This helps keeping the stride of leading dimension equal to 1.
         /// \param permutation the permutation indices
         inline
-        DenseTensor<T> hard_transpose(const arma::uvec &permutation) const {
+        DenseTensor<T> hard_transpose(const arma::uvec &permutation) {
 
             if (permutation.n_elem != rank) {
                 throw Error("The number of permutation does not match the rank of tensor");

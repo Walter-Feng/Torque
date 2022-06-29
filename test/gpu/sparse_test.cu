@@ -1,8 +1,10 @@
 #include <catch.hpp>
 
+#define ARMA_ALLOW_FAKE_GCC
+
 #include "tensor/sparse.h"
 #include "gpu/sparse.cuh"
-#define ARMA_ALLOW_FAKE_GCC
+
 
 TEST_CASE("thrust - arma utility function") {
 

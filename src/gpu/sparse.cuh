@@ -1,6 +1,9 @@
 #ifndef TORQUE_GPU_SPARSE_CUH
 #define TORQUE_GPU_SPARSE_CUH
 #define ARMA_ALLOW_FAKE_GCC
+
+#define ARMA_ALLOW_FAKE_GCC
+
 #include <armadillo>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>

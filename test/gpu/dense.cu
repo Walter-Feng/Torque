@@ -1,13 +1,14 @@
 #include <catch.hpp>
 
-#include "tensor/dense.h"
+#define ARMA_ALLOW_FAKE_GCC
+#include "gpu/dense.cuh"
 
 TEST_CASE("dense tensor operation") {
 SECTION("dense matrix initialization") {
 const int rank = 2; // Matrix
 const arma::uvec dimension = {4, 3}; // 4x3 matrix
 
-torque::DenseTensor<float> tensor(dimension);
+torque::gpu::DenseTensor<float> tensor(dimension);
 
 CHECK(tensor.query({1,1}) == 0);
 
@@ -26,7 +27,7 @@ SECTION("dense matrix transposition") {
 const int rank = 2; // Matrix
 const arma::uvec dimension = {4, 3}; // 4x3 matrix
 
-torque::DenseTensor<float> tensor(dimension);
+torque::gpu::DenseTensor<float> tensor(dimension);
 
 CHECK(tensor.query({1,1}) == 0);
 
@@ -42,7 +43,7 @@ const arma::uvec permutation = {1,0};
 
 CHECK(tensor.query({1,2}) == 10);
 
-tensor.soft_transpose(permutation); // Now tensor is 3 x 4 matrix
+tensor = tensor.hard_transpose(permutation); // Now tensor is 3 x 4 matrix
 
 CHECK(tensor.query({1, 2}) == 7);
 
@@ -61,7 +62,7 @@ SECTION("dense tensor initialization") {
 const int rank = 3; // Matrix
 const arma::uvec dimension = {2, 2, 3}; // 4x3 matrix
 
-torque::DenseTensor<float> tensor(dimension);
+torque::gpu::DenseTensor<float> tensor(dimension);
 
 CHECK(tensor.query({1,1,0}) == 0);
 
@@ -77,10 +78,10 @@ const arma::uvec dimension = {2, 2, 3}; // 4x3 matrix
 
 std::vector<float> a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
-torque::DenseTensor<float> tensor(a.data(), dimension);
+torque::gpu::DenseTensor<float> tensor(a.data(), dimension);
 CHECK(tensor.query({0,0,2}) == 9);
 CHECK(tensor.query({0,1,2}) == 11);
-tensor.soft_transpose({0, 2, 1});
+tensor = tensor.hard_transpose({0, 2, 1});
 CHECK(tensor.query({0,2,0}) == 9);
 CHECK(tensor.query({0,2,1}) == 11);
 
@@ -91,7 +92,7 @@ CHECK(tensor_another_transpose.query({2, 0, 1}) == 11);
 
 SECTION("scalar") {
 
-torque::DenseTensor<float> tensor(arma::uvec{});
+torque::gpu::DenseTensor<float> tensor(arma::uvec{});
 
 CHECK(tensor.rank == 0);
 CHECK(tensor.query({}) == 0);
@@ -103,7 +104,7 @@ CHECK(tensor.query({}) == 1);
 SECTION("vector contraction") {
 const std::vector<float> vec{0,1,2,3,4};
 
-const torque::DenseTensor<float> tensor_format(vec.data(), {5});
+const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {5});
 const auto result =
         tensor_format.contract(tensor_format, arma::umat({0, 0}));
 
@@ -113,7 +114,7 @@ assert(result.to_number() == 30);
 SECTION("matrix multiplication") {
 const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
 
-const torque::DenseTensor<float> tensor_format(vec.data(), {3, 3});
+const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {3, 3});
 
 const auto A_squared = tensor_format.contract(tensor_format, arma::umat({1, 0}));
 
@@ -131,7 +132,7 @@ CHECK(A_squared.query(arma::uvec{i, j}) == ref_A_squared(i, j));
 SECTION("matrix inner product") {
 const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
 
-const torque::DenseTensor<float> tensor_format(vec.data(), {3, 3});
+const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {3, 3});
 
 const auto A_squared =
         tensor_format.contract(tensor_format,
@@ -147,11 +148,11 @@ CHECK(A_squared.to_number() == result);
 SECTION("tensor-vector contraction") {
 const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7};
 
-const torque::DenseTensor<float> tensor_format(tensor_data.data(), {2, 2, 2});
+const torque::gpu::DenseTensor<float> tensor_format(tensor_data.data(), {2, 2, 2});
 
 const std::vector<float> vector{1, 2};
 
-const torque::DenseTensor<float> vector_in_tensor(vector.data(), {2});
+const torque::gpu::DenseTensor<float> vector_in_tensor(vector.data(), {2});
 
 const auto contraction = tensor_format.contract(vector_in_tensor, arma::umat{{0, 0}});
 
@@ -176,11 +177,11 @@ CHECK(contraction_3.query({1, 0}) == 11);
 SECTION("tensor-matrix contraction") {
 const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 
-const torque::DenseTensor<float> tensor_format(tensor_data.data(), {2, 2, 3});
+const torque::gpu::DenseTensor<float> tensor_format(tensor_data.data(), {2, 2, 3});
 
 const std::vector<float> matrix{1, 2, 3, 4};
 
-const torque::DenseTensor<float> matrix_in_tensor(matrix.data(), {2, 2}); // row vector
+const torque::gpu::DenseTensor<float> matrix_in_tensor(matrix.data(), {2, 2}); // row vector
 
 const auto contraction = tensor_format.contract(matrix_in_tensor, arma::umat{{0, 1}, {1, 0}});
 

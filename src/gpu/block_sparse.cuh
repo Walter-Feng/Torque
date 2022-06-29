@@ -2,6 +2,9 @@
 #define TORQUE_GPU_BLOCK_SPARSE_CUH
 
 #include <cutt.h>
+
+#define ARMA_ALLOW_FAKE_GCC
+
 #include <armadillo>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
