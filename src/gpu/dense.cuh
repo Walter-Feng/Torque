@@ -3,6 +3,7 @@
 
 #include <armadillo>
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
 #include <cutensor.h>
 #include <cutt.h>
 
