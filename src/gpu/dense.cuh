@@ -322,7 +322,7 @@ cudaDataType_t cutensor_data_type() {
 
 
             std::vector<int> total(this->rank + tensor.rank);
-            for(int i=0; i<this->rank + tensor.rank; i++) {
+            for(int i=1; i<=this->rank + tensor.rank; i++) {
                 total[i] = i;
             }
             std::vector<int> this_mode(this->rank);
