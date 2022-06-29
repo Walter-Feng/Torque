@@ -317,10 +317,18 @@ cudaDataType_t cutensor_data_type() {
 
             printf("Query best alignment requirement for our pointers\n");
 
+
+            arma::ivec total(this->rank + tensor.rank);
+            for(int i=0; i<this->rank + tensor.rank; i++) {
+                total(i) = i;
+            }
+            std::vector<int> this_mode(this->rank);
+            for(int i=0; i<this->rank; i++)
+
             cutensorContractionDescriptor_t desc;
             HANDLE_ERROR( cutensorInitContractionDescriptor( &handle,
                                                              &desc,
-                                                             &descA, modeA.data(), alignmentRequirementA,
+                                                             &this_descriptor, modeA.data(), alignmentRequirementA,
                                                              &descB, modeB.data(), alignmentRequirementB,
                                                              &descC, modeC.data(), alignmentRequirementC,
                                                              &descC, modeC.data(), alignmentRequirementC,
