@@ -122,7 +122,7 @@ cudaDataType_t cutensor_data_type() {
         inline
         explicit DenseTensor(thrust::device_vector<T> &&source_data, const arma::uvec &dimension) {
 
-            if (!source_data.empty()) {
+            if (source_data.empty()) {
                 throw Error("Source data not allocated!");
             }
 
