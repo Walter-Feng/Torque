@@ -298,8 +298,6 @@ cudaDataType_t cutensor_data_type() {
                                                       data_type,
                                                       CUTENSOR_OP_IDENTITY));
 
-            printf("Initialized cuTENSOR and tensor descriptors\n");
-
             uint32_t this_alignmentRequirement;
             HANDLE_ERROR( cutensorGetAlignmentRequirement( &handle,
                                                            thrust::raw_pointer_cast(this->data.data()),
@@ -317,9 +315,6 @@ cudaDataType_t cutensor_data_type() {
                                                            thrust::raw_pointer_cast(result.data()),
                                                            &result_descriptor,
                                                            &result_alignmentRequirement) );
-
-            printf("Query best alignment requirement for our pointers\n");
-
 
             std::vector<int> total(this->rank + tensor.rank);
             for(int i=0; i<this->rank + tensor.rank; i++) {
@@ -343,27 +338,6 @@ cudaDataType_t cutensor_data_type() {
 
             cutensorContractionDescriptor_t desc;
 
-            std::cout << "this_mode: " ;
-            for(int i=0; i<this_mode.size(); i++) {
-                std::cout << this_mode[i] << " ";
-            }
-
-            std::cout << std::endl;
-
-            std::cout << "that_mode: ";
-            for(int i=0; i<this_mode.size(); i++) {
-                std::cout << that_mode[i] << " ";
-            }
-
-            std::cout << std::endl;
-
-            std::cout << "result_mode: ";
-            for(int i=0; i<result_mode.size(); i++) {
-                std::cout << result_mode[i] << " ";
-            }
-
-            std::cout << std::endl;
-
             HANDLE_ERROR( cutensorInitContractionDescriptor( &handle,
                                                              &desc,
                                                              &this_descriptor, this_mode.data(), this_alignmentRequirement,
@@ -372,15 +346,11 @@ cudaDataType_t cutensor_data_type() {
                                                              &result_descriptor, result_mode.data(), result_alignmentRequirement,
                                                              compute_type) );
 
-            printf("Initialize contraction descriptor\n");
 
             cutensorContractionFind_t find;
             HANDLE_ERROR( cutensorInitContractionFind(
                     &handle, &find,
                     CUTENSOR_ALGO_DEFAULT) );
-
-            printf("Initialize settings to find algorithm\n");
-
 
             // Query workspace
             size_t worksize = 0;
@@ -400,10 +370,6 @@ cudaDataType_t cutensor_data_type() {
                 }
             }
 
-            printf("Query recommended workspace size and allocate it\n");
-
-            /* ***************************** */
-
             // Create Contraction Plan
             cutensorContractionPlan_t plan;
             HANDLE_ERROR( cutensorInitContractionPlan(&handle,
@@ -411,10 +377,6 @@ cudaDataType_t cutensor_data_type() {
                                                       &desc,
                                                       &find,
                                                       worksize) );
-
-            printf("Create plan for contraction\n");
-
-            /* ***************************** */
 
             cutensorStatus_t err;
 
@@ -435,8 +397,6 @@ cudaDataType_t cutensor_data_type() {
             {
                 printf("ERROR: %s\n", cutensorGetErrorString(err));
             }
-
-            printf("Execute contraction from plan\n");
 
             return DenseTensor<T>(std::move(result), new_dimension);
 
