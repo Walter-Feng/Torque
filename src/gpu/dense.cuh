@@ -322,8 +322,8 @@ cudaDataType_t cutensor_data_type() {
 
 
             std::vector<int> total(this->rank + tensor.rank);
-            for(int i=1; i<=this->rank + tensor.rank; i++) {
-                total[i] = i;
+            for(int i=0; i<this->rank + tensor.rank; i++) {
+                total[i] = i + 1;
             }
             std::vector<int> this_mode(this->rank);
             std::vector<int> that_mode(tensor.rank);
@@ -332,8 +332,8 @@ cudaDataType_t cutensor_data_type() {
             memcpy(that_mode.data(), total.data() + this->rank, sizeof(int) * tensor.rank);
 
             for(int i=0; i<this_contracting_indices.n_elem; i++) {
-                this_mode[this_contracting_indices(i)] = -i;
-                that_mode[that_contracting_indices(i)] = -i;
+                this_mode[this_contracting_indices(i)] = - (i + 1);
+                that_mode[that_contracting_indices(i)] = -(i + 1);
                 total[this_contracting_indices(i)] = 0;
                 total[this->rank + that_contracting_indices(i)] = 0;
             }
