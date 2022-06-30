@@ -3,6 +3,7 @@
 
 #define ARMA_ALLOW_FAKE_GCC
 
+#include <optional>
 #include <armadillo>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -292,6 +293,8 @@ cudaDataType_t cutensor_data_type() {
 
 #ifdef USE_CUTENSOR
 
+            std::cout << std::endl << "I am using CUTENSOR!" << std::endl;
+
             auto compute_type = cutensor_compute_type<T>();
             auto data_type = cutensor_data_type<T>();
 
@@ -445,8 +448,10 @@ cudaDataType_t cutensor_data_type() {
             const arma::uvec this_permutation = permutation_generator(this_contracting_indices, this->rank);
             const arma::uvec that_permutation = permutation_generator(that_contracting_indices, tensor.rank);
 
-            const DenseTensor<T> this_transposed = this->hard_transpose(this_permutation);
-            const DenseTensor<T> that_transposed = tensor.hard_transpose(that_permutation);
+            const std::optional<DenseTensor<T>> this_transposed =
+                    this_permutation.is_sorted() ? std::nullopt : this->hard_transpose(this_permutation);
+            const std::optional<DenseTensor<T>> that_transposed =
+                    that_permutation.is_sorted() ? std::nullopt : tensor.hard_transpose(that_permutation);
 
             const arma::uword contracting_n_elem = arma::prod(contract_dimension);
 
@@ -456,8 +461,12 @@ cudaDataType_t cutensor_data_type() {
             cublasHandle_t handle;
             cublasCreate(&handle);
 
-            const T * this_pointer = thrust::raw_pointer_cast(this_transposed.data.data());
-            const T * that_pointer = thrust::raw_pointer_cast(that_transposed.data.data());
+            const T * this_pointer = this_transposed.has_value() ?
+                                     thrust::raw_pointer_cast(this->data.data()) :
+                                     thrust::raw_pointer_cast(this_transposed.value().data.data());
+            const T * that_pointer = that_transposed.has_value() ?
+                                     thrust::raw_pointer_cast(tensor.data.data()) :
+                                     thrust::raw_pointer_cast(that_transposed.value().data.data());
             T * out_pointer = thrust::raw_pointer_cast(result.data());
 
             if constexpr(std::is_same<T, float>::value) {
