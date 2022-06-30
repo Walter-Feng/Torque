@@ -462,11 +462,13 @@ cudaDataType_t cutensor_data_type() {
             cublasCreate(&handle);
 
             const T * this_pointer = this_transposed.has_value() ?
-                                     thrust::raw_pointer_cast(this->data.data()) :
-                                     thrust::raw_pointer_cast(this_transposed.value().data.data());
+                                     thrust::raw_pointer_cast(this_transposed.value().data.data()) :
+                                     thrust::raw_pointer_cast(this->data.data()) ;
+
             const T * that_pointer = that_transposed.has_value() ?
-                                     thrust::raw_pointer_cast(tensor.data.data()) :
-                                     thrust::raw_pointer_cast(that_transposed.value().data.data());
+                                     thrust::raw_pointer_cast(that_transposed.value().data.data()) :
+                                     thrust::raw_pointer_cast(tensor.data.data()) ;
+
             T * out_pointer = thrust::raw_pointer_cast(result.data());
 
             if constexpr(std::is_same<T, float>::value) {
