@@ -62,7 +62,7 @@ cudaDataType_t cutensor_data_type() {
     public:
 
         /// The rank of the tensor
-        arma::uword rank;
+        arma::uword rank{};
 
         /// The dimensions at each index of the tensor. The first index is the leading dimension of the
         /// tensor with stride equal to 1, i.e. difference of 1 for the first index will result in
@@ -148,6 +148,21 @@ cudaDataType_t cutensor_data_type() {
             } else {
                 throw Error("Source data not allocated!");
             }
+        }
+
+        DenseTensor(DenseTensor &&tensor)  noexcept :
+            rank(std::move(tensor.rank)),
+            dimension(std::move(tensor.dimension)),
+            index_table(std::move(tensor.index_table)),
+            data(std::move(tensor.data)) {}
+
+        inline
+        DenseTensor& operator=(DenseTensor<T>&& other)  noexcept {
+            rank = std::move(other.rank);
+            dimension = std::move(other.dimension);
+            index_table = std::move(other.index_table);
+            data = std::move(other.data);
+            return *this;
         }
 
         ///

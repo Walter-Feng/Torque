@@ -2,14 +2,16 @@
 #define TORQUE_GPU_SPARSE_CUH
 #define ARMA_ALLOW_FAKE_GCC
 
-#define ARMA_ALLOW_FAKE_GCC
-
 #include <armadillo>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
 
 #include "gpu/util/thrust_arma_fusion.cuh"
 #include "util/space.h"
+
+
+#include <chrono>
+using namespace std::chrono;
 
 namespace torque {
 namespace gpu {
@@ -260,6 +262,11 @@ public:
     /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
     SparseTensor<T>
     contract(cublasHandle_t handle, const SparseTensor<T> & tensor, const arma::umat & contracting_indices) const {
+
+        // Use auto keyword to avoid typing long
+        // type definitions to get the timepoint
+        // at this instant use function now()
+        auto start = high_resolution_clock::now();
 
         const arma::uvec this_contracting_indices = contracting_indices.col(0);
         const arma::uvec that_contracting_indices = contracting_indices.col(1);

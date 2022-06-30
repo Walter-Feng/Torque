@@ -257,6 +257,12 @@ endif()
             )
 
     target_link_libraries(peps_benchmark catch2 torque gpu_torque)
+
+    add_executable(dense_peps_benchmark
+            test/gpu/dense_peps_test.cu
+            )
+
+    target_link_libraries(dense_peps_benchmark catch2 torque gpu_torque)
 endif()
 
 

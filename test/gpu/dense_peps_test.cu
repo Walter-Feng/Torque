@@ -2,19 +2,14 @@
 
 #define ARMA_ALLOW_FAKE_GCC
 
-#include "tensor/dense.h"
-#include "tensor/sparse.h"
-#include "tensor/block_sparse.h"
-#include "gpu/sparse.cuh"
+#include "gpu/dense.cuh"
 
 #include <cuda_profiler_api.h>
-
-#define ARMA_ALLOW_FAKE_GCC
 
 TEST_CASE("PEPS practial tensor") {
 
 SECTION("large tensor - matrix contraction") {
-// (From Eric's code)
+
 cudaEvent_t start;
 cudaEvent_t stop;
 
@@ -37,18 +32,7 @@ tensor_data[i] = rand_number;
 dense_tensor_data[indices[i]] = rand_number;
 }
 
-const torque::DenseTensor<double>
-    cpu_dense_tensor_format(dense_tensor_data.data(), tensor_dimension);
-
-const torque::SparseTensor<double> cpu_tensor_format(tensor_data.data(),
-                                                     indices,
-                                                     tensor_table,
-                                                     tensor_dimension);
-
-
-const torque::gpu::SparseTensor<double> tensor_format(tensor_data.data(),
-                                                      indices,
-                                                      tensor_table,
+const torque::gpu::DenseTensor<double> tensor_format(dense_tensor_data.data(),
                                                       tensor_dimension);
 
 std::vector<double> dense_matrix(100);
@@ -67,16 +51,14 @@ const double rand_number = arma::randu();
 matrix[i] = rand_number;
 }
 
-const torque::gpu::SparseTensor<double> matrix_in_tensor(matrix.data(),
-                                                         matrix_indices,
-                                                         matrix_table,
-                                                         matrix_dimension);
+const torque::gpu::DenseTensor<double> matrix_in_tensor(dense_matrix.data(),
+                                                        matrix_dimension);
 
 cudaProfilerStart();
 
 
-    cublasHandle_t handle;
-    cublasCreate(&handle);
+cublasHandle_t handle;
+cublasCreate(&handle);
 
 #define START_TIMER() {               \
       cudaEventCreate(&start);      \
@@ -93,18 +75,17 @@ cudaProfilerStart();
     }
 
 
-    START_TIMER();
+START_TIMER();
 
-const auto contraction = tensor_format.contract(handle,
-                                                matrix_in_tensor,
+const auto contraction = tensor_format.contract(matrix_in_tensor,
                                                 arma::umat{{0, 0}, {1, 1}});
 
-    STOP_RECORD_TIMER(gpu_time_contraction);
+STOP_RECORD_TIMER(gpu_time_contraction);
 
-std::cout <<  "GPU time (sparse contraction): " <<
-          gpu_time_contraction << " milliseconds" << std::endl;
+std::cout <<  "GPU time (dense contraction): " <<
+gpu_time_contraction << " milliseconds" << std::endl;
 
-    cublasDestroy(handle);
+cublasDestroy(handle);
 
 cudaProfilerStop();
 
