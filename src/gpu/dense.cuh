@@ -13,7 +13,14 @@
 //
 #define cuttCheck(stmt) do {                                 \
   cuttResult err = stmt;                            \
-  if (err != CUTT_SUCCESS) {                          \
+  if (err != CUTT_SUCCESS) {                                 \
+  if(err == CUTT_INTERNAL_ERROR) {                           \
+    printf("CUTT_INTERNAL_ERROR\n");                         \
+  } else if (err == CUTT_INVALID_PARAMETER) {                \
+   printf("CUTT_INVALID_PARAMETER\n");                       \
+  } else if (err == CUTT_INVALID_PLAN) {                     \
+   printf("CUTT_INVALID_PLAN\n");                       \
+  }\
     fprintf(stderr, "%s in file %s, function %s\n", #stmt,__FILE__,__FUNCTION__); \
     exit(1); \
   }                                                  \
@@ -500,7 +507,7 @@ cudaDataType_t cutensor_data_type() {
             auto new_data = thrust::device_vector<T>(total_elem);
 
             auto dim_in_cutt = std::vector<int>(this->rank);
-            auto permutation_in_cutt = std::vector<int>(this->rank);
+            auto permutation_in_cutt = std::vector<int>(permutation.n_elem);
 
             for(arma::uword i=0; i<this->rank; i++) {
                 dim_in_cutt[i] = this->dimension(i);
@@ -508,6 +515,13 @@ cudaDataType_t cutensor_data_type() {
             }
 
             cuttHandle plan;
+
+            std::cout << std::endl;
+            std::cout << "------------debug info -----------------" << std::endl;
+            std::cout << "rank: " << this->rank << std::endl;
+            std::cout << "dim_in_cutt: " << dim_in_cutt.size() << std::endl;
+            std::cout << "------------ end -----------------" << std::endl;
+
             cuttCheck(cuttPlan(&plan, this->rank,
                                dim_in_cutt.data(),
                                permutation_in_cutt.data(),
@@ -518,6 +532,7 @@ cudaDataType_t cutensor_data_type() {
                       (void *) thrust::raw_pointer_cast(new_data.data())));
 
             cuttCheck(cuttDestroy(plan));
+
             return DenseTensor<T>(std::move(new_data), new_dimension);
 
         }
