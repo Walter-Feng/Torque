@@ -487,7 +487,7 @@ cudaDataType_t cutensor_data_type() {
         /// This helps keeping the stride of leading dimension equal to 1.
         /// \param permutation the permutation indices
         inline
-        DenseTensor<T> hard_transpose(const arma::uvec &permutation) {
+        DenseTensor<T> hard_transpose(const arma::uvec &permutation) const {
 
             if (permutation.n_elem != rank) {
                 throw Error("The number of permutation does not match the rank of tensor");
@@ -514,7 +514,7 @@ cudaDataType_t cutensor_data_type() {
                                sizeof(T), 0));
 
             cuttCheck(cuttExecute(plan,
-                      (void *) static_cast<void *>(thrust::raw_pointer_cast(this->data.data())),
+                      const_cast<void *>(thrust::raw_pointer_cast(this->data.data())),
                       (void *) thrust::raw_pointer_cast(new_data.data())));
 
             cuttCheck(cuttDestroy(plan));
