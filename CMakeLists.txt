@@ -116,7 +116,7 @@ set_target_properties(torque
 # cuTENSOR dependencies
 # ##########################################
 
-option(USE_CUTENSOR "Use cuTensor" OFF)
+option(WITH_CUTENSOR "Use cuTensor" OFF)
 
 if(USE_GPU)
     find_package(CUDA)
@@ -125,17 +125,43 @@ if(USE_GPU)
 
     find_package(CUDAToolkit REQUIRED)
 
-    if(NOT DEFINED ENV{CUTENSOR_ROOT} AND NOT DEFINED CUTENSOR_ROOT)
-        message("cuTensor not found. A homebrew implementation will be used.")
-    else()
-        if(DEFINED ENV{CUTENSOR_ROOT})
-            set(CUTENSOR_ROOT "$ENV{CUTENSOR_ROOT}")
-        endif()
-        message("-- Looking for cuTENSOR in ${CUTENSOR_ROOT}")
-        if(NOT EXISTS ${CUTENSOR_ROOT})
-            message("Cannot find CUTENSOR_ROOT")
+    if(WITH_CUTENSOR)
+
+        if(NOT DEFINED ENV{CUTENSOR_ROOT} AND NOT DEFINED CUTENSOR_ROOT)
+            message("cuTensor not found. A homebrew implementation will be used.")
+            set(WITH_CUTENSOR OFF)
         else()
-            set(USE_CUTENSOR ON)
+            if(DEFINED ENV{CUTENSOR_ROOT})
+                set(CUTENSOR_ROOT "$ENV{CUTENSOR_ROOT}")
+            endif()
+            message("-- Looking for cuTENSOR in ${CUTENSOR_ROOT}")
+            if(NOT EXISTS ${CUTENSOR_ROOT})
+                message("Cannot find CUTENSOR_ROOT")
+            else()
+                add_definitions(-DUSE_CUTENSOR)
+
+                if(WITH_CUTENSOR)
+                    if(NOT TARGET cutensor)
+                        add_library(cutensor SHARED IMPORTED)
+                        if(WIN32)
+                            set(CUTENSOR_LIBRARY_NAME "cutensor.dll")
+                            set(CUTENSOR_LIBRARY_DEF "cutensor.lib")
+                        else()
+                            set(CUTENSOR_LIBRARY_NAME "libcutensor.so")
+                        endif()
+                        set(LIB_DIR "/lib")
+
+                        set_target_properties(cutensor PROPERTIES
+                                IMPORTED_LOCATION "${CUTENSOR_ROOT}/${LIB_DIR}/${CUTENSOR_LIBRARY_NAME}"
+                                IMPORTED_IMPLIB "${CUTENSOR_ROOT}/${LIB_DIR}/${CUTENSOR_LIBRARY_DEF}"
+                                INTERFACE_INCLUDE_DIRECTORIES "${CUTENSOR_ROOT}/include")
+                    endif()
+
+                    include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include )
+
+                    message("-- cuTENSOR linked.")
+                endif()
+            endif()
         endif()
 
     endif()
@@ -146,31 +172,10 @@ if(USE_GPU)
 
             )
 
-    if(USE_CUTENSOR)
-        if(NOT TARGET cutensor)
-            add_library(cutensor SHARED IMPORTED)
-            if(WIN32)
-                set(CUTENSOR_LIBRARY_NAME "cutensor.dll")
-                set(CUTENSOR_LIBRARY_DEF "cutensor.lib")
-            else()
-                set(CUTENSOR_LIBRARY_NAME "libcutensor.so")
-            endif()
-            set(LIB_DIR "/lib")
-
-            set_target_properties(cutensor PROPERTIES
-                    IMPORTED_LOCATION "${CUTENSOR_ROOT}/${LIB_DIR}/${CUTENSOR_LIBRARY_NAME}"
-                    IMPORTED_IMPLIB "${CUTENSOR_ROOT}/${LIB_DIR}/${CUTENSOR_LIBRARY_DEF}"
-                    INTERFACE_INCLUDE_DIRECTORIES "${CUTENSOR_ROOT}/include")
-        endif()
-
-        include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include )
-
-        message("-- cuTENSOR linked.")
-    endif()
 
     target_link_libraries(gpu_torque ${ARMADILLO_LIBRARIES})
 
-    if(USE_CUTENSOR)
+    if(WITH_CUTENSOR)
         target_link_libraries(gpu_torque cutensor CUDA::cublas CUDA::cudart)
     else()
         target_link_libraries(gpu_torque CUDA::cublas CUDA::cudart)
