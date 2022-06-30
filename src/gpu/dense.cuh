@@ -514,7 +514,7 @@ cudaDataType_t cutensor_data_type() {
                                sizeof(T), 0));
 
             cuttCheck(cuttExecute(plan,
-                      const_cast<void *>(thrust::raw_pointer_cast(this->data.data())),
+                      (void *) const_cast<T *>(thrust::raw_pointer_cast(this->data.data())),
                       (void *) thrust::raw_pointer_cast(new_data.data())));
 
             cuttCheck(cuttDestroy(plan));
