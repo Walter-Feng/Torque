@@ -444,14 +444,14 @@ cudaDataType_t cutensor_data_type() {
             const arma::uword contracting_n_elem = arma::prod(contract_dimension);
 
             const arma::uword this_leading_dim = arma::prod(this->dimension) / contracting_n_elem;
-            const arma::uword that_leading_dim = arma::prod(tensor.dimesnion) / contracting_n_elem;
+            const arma::uword that_leading_dim = arma::prod(tensor.dimension) / contracting_n_elem;
 
             cublasHandle_t handle;
             cublasCreate(&handle);
 
             const T * this_pointer = thrust::raw_pointer_cast(this_transposed.data.data());
             const T * that_pointer = thrust::raw_pointer_cast(that_transposed.data.data());
-            const T * out_pointer = thrust::raw_pointer_cast(result.data());
+            T * out_pointer = thrust::raw_pointer_cast(result.data());
 
             if constexpr(std::is_same<T, float>::value) {
                 cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T,
