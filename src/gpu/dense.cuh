@@ -6,7 +6,6 @@
 #include <armadillo>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
-#include <cutensor.h>
 #include <cutt.h>
 
 //
@@ -20,13 +19,6 @@
   }                                                  \
 } while(0)
 
-// Handle cuTENSOR errors
-#define HANDLE_ERROR(x) {                                                              \
-  const auto err = x;                                                                  \
-  if( err != CUTENSOR_STATUS_SUCCESS )                                                   \
-  { printf("Error: %s in line %d\n", cutensorGetErrorString(err), __LINE__); exit(-1); } \
-}
-
 #include "error.h"
 #include "gpu/util/thrust_arma_fusion.cuh"
 #include "util/space.h"
@@ -34,6 +26,17 @@
 
 namespace torque {
 namespace gpu {
+
+#ifdef USE_CUTENSOR
+
+#include <cutensor.h>
+
+// Handle cuTENSOR errors
+#define HANDLE_ERROR(x) {                                                              \
+  const auto err = x;                                                                  \
+  if( err != CUTENSOR_STATUS_SUCCESS )                                                   \
+  { printf("Error: %s in line %d\n", cutensorGetErrorString(err), __LINE__); exit(-1); } \
+}
 
 template<typename T>
 cutensorComputeType_t cutensor_compute_type() {
@@ -56,6 +59,8 @@ cudaDataType_t cutensor_data_type() {
             return CUDA_R_16F;
         }
     }
+
+#endif
 
     template<typename T>
     class DenseTensor {
@@ -233,9 +238,6 @@ cudaDataType_t cutensor_data_type() {
         DenseTensor<T>
         contract(const DenseTensor<T> &tensor, const arma::umat &contracting_indices) const {
 
-            auto compute_type = cutensor_compute_type<T>();
-            auto data_type = cutensor_data_type<T>();
-
             T one = 1;
             T zero = 0;
 
@@ -257,9 +259,6 @@ cudaDataType_t cutensor_data_type() {
             const arma::uvec new_dimension_table = torque::util::generate_index_table(new_dimension);
 
             auto result = thrust::device_vector<T>(arma::prod(new_dimension));
-
-            cutensorHandle_t handle;
-            cutensorInit(&handle);
 
             auto this_dim = std::vector<int64_t>(this->rank);
             auto this_table = std::vector<int64_t>(this->rank);
@@ -284,6 +283,13 @@ cudaDataType_t cutensor_data_type() {
                 result_table[i] = new_dimension_table(i);
             }
 
+#ifdef USE_CUTENSOR
+
+            auto compute_type = cutensor_compute_type<T>();
+            auto data_type = cutensor_data_type<T>();
+
+            cutensorHandle_t handle;
+            cutensorInit(&handle);
             cutensorTensorDescriptor_t this_descriptor;
 
             HANDLE_ERROR(cutensorInitTensorDescriptor(&handle,
@@ -413,6 +419,66 @@ cudaDataType_t cutensor_data_type() {
                 printf("ERROR: %s\n", cutensorGetErrorString(err));
             }
 
+#else
+
+            const auto permutation_generator =
+                    [](const arma::uvec & contracting_indices, const arma::uword target_rank) -> arma::uvec {
+
+                arma::uvec transposition(target_rank);
+
+                for(int i=0; i<target_rank; i++) {
+                    transposition(i) = i;
+                }
+
+                transposition.shed_rows(contracting_indices);
+
+                return arma::join_vert(transposition, contracting_indices);
+            };
+
+            const arma::uvec this_permutation = permutation_generator(this_contracting_indices, this->rank);
+            const arma::uvec that_permutation = permutation_generator(that_contracting_indices, tensor.rank);
+
+            const DenseTensor<T> this_transposed = this->hard_transpose(this_permutation);
+            const DenseTensor<T> that_transposed = tensor.hard_transpose(that_permutation);
+
+            const arma::uword contracting_n_elem = arma::prod(contract_dimension);
+
+            const arma::uword this_leading_dim = arma::prod(this->dimension) / contracting_n_elem;
+            const arma::uword that_leading_dim = arma::prod(tensor.dimesnion) / contracting_n_elem;
+
+            cublasHandle_t handle;
+            cublasCreate(&handle);
+
+            const T * this_pointer = thrust::raw_pointer_cast(this_transposed.data.data());
+            const T * that_pointer = thrust::raw_pointer_cast(that_transposed.data.data());
+            const T * out_pointer = thrust::raw_pointer_cast(result.data());
+
+            if constexpr(std::is_same<T, float>::value) {
+                cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T,
+                            this_leading_dim, that_leading_dim, contracting_n_elem, &one,
+                            this_pointer, this_leading_dim,
+                            that_pointer, that_leading_dim,
+                            &zero, out_pointer, this_leading_dim);
+            }
+
+            if constexpr(std::is_same<T, double>::value) {
+                cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T,
+                            this_leading_dim, that_leading_dim, contracting_n_elem, &one,
+                            this_pointer, this_leading_dim,
+                            that_pointer, that_leading_dim,
+                            &zero, out_pointer, this_leading_dim);
+            }
+
+            if constexpr(std::is_same<T, half>::value) {
+                cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T,
+                            this_leading_dim, that_leading_dim, contracting_n_elem, &one,
+                            this_pointer, this_leading_dim,
+                            that_pointer, that_leading_dim,
+                            &zero, out_pointer, this_leading_dim);
+            }
+
+#endif
+
             return DenseTensor<T>(std::move(result), new_dimension);
 
         }
@@ -460,6 +526,7 @@ cudaDataType_t cutensor_data_type() {
         /// Stores data
         thrust::device_vector<T> data;
     };
+
 
 }
 }
