@@ -449,9 +449,9 @@ cudaDataType_t cutensor_data_type() {
             const arma::uvec that_permutation = permutation_generator(that_contracting_indices, tensor.rank);
 
             const std::optional<DenseTensor<T>> this_transposed =
-                    this_permutation.is_sorted() ? std::nullopt : this->hard_transpose(this_permutation);
+                    this_permutation.is_sorted() ? std::nullopt : std::optional(this->hard_transpose(this_permutation));
             const std::optional<DenseTensor<T>> that_transposed =
-                    that_permutation.is_sorted() ? std::nullopt : tensor.hard_transpose(that_permutation);
+                    that_permutation.is_sorted() ? std::nullopt : std::optional(tensor.hard_transpose(that_permutation));
 
             const arma::uword contracting_n_elem = arma::prod(contract_dimension);
 
