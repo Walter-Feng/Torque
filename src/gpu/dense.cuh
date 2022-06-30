@@ -293,8 +293,6 @@ cudaDataType_t cutensor_data_type() {
 
 #ifdef USE_CUTENSOR
 
-            std::cout << std::endl << "I am using CUTENSOR!" << std::endl;
-
             auto compute_type = cutensor_compute_type<T>();
             auto data_type = cutensor_data_type<T>();
 
@@ -526,12 +524,6 @@ cudaDataType_t cutensor_data_type() {
             }
 
             cuttHandle plan;
-
-            std::cout << std::endl;
-            std::cout << "------------debug info -----------------" << std::endl;
-            std::cout << "rank: " << this->rank << std::endl;
-            std::cout << "dim_in_cutt: " << dim_in_cutt.size() << std::endl;
-            std::cout << "------------ end -----------------" << std::endl;
 
             cuttCheck(cuttPlan(&plan, this->rank,
                                dim_in_cutt.data(),
