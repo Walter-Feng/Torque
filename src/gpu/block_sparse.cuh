@@ -18,6 +18,108 @@
 
 namespace torque {
 namespace gpu {
+namespace block_sparse {
+
+    template<typename T>
+    __global__
+    void
+    reshape(const T * src_data,
+            const int ** block_index_tables,
+            const int ** blocks_strides,
+            const int * blocks_starting_points,
+            const int * blocks_n_elem_nest_sum,
+            const int n_block,
+            const int n_elem,
+            const int rank,
+            const int * dest_index_tables,
+            T * dest_data) {
+
+        const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+
+        if(i < n_elem) {
+            int block_index = -1;
+            int tensor_index = 0;
+            int dest_index = 0;
+            int tmp;
+            int tensor_residue;
+
+            for(int j=0; j<n_block; j++) {
+                if(i >= blocks_n_elem_nest_sum[j]) {
+                    block_index += 1;
+                } else {
+                    block_index += 0;
+                }
+            }
+
+            tensor_residue = i - blocks_n_elem_nest_sum[block_index];
+
+            for(int j=0; j<rank; j++) {
+
+                tmp = tensor_residue / block_index_tables[block_index][rank - j - 1];
+
+                tensor_index += blocks_strides[block_index][rank - j - 1] * tmp;
+                dest_index += dest_index_tables[rank - j - 1] * tmp;
+
+                tensor_residue %= block_index_tables[block_index][rank - j - 1];
+
+            }
+
+            tensor_index += blocks_starting_points[block_index];
+            dest_index += block_index * dest_index_tables[rank];
+
+            dest_data[dest_index] = src_data[tensor_index];
+
+        }
+
+    }
+
+    template<typename T>
+    thrust::device_vector<T>
+    reshape(const thrust::device_vector<T> & src_data,
+            const arma::umat & blocks_dimensions,
+            const arma::umat & blocks_strides,
+            const arma::uvec & blocks_starting_points,
+            const arma::uvec & dest_dimensions) {
+
+        const arma::uword n_blocks = blocks_dimensions.n_cols;
+
+        int ** dev_block_index_tables;
+        int ** dev_blocks_strides;
+        cudaMalloc(&dev_block_index_tables, n_blocks);
+        cudaMalloc(&dev_blocks_strides, n_blocks);
+
+        std::vector<thrust::device_vector<T>> block_index_tables_in_thrust;
+        std::vector<thrust::device_vector<T>> blocks_strides_in_thrust;
+
+        for(int i=0; i<n_blocks; i++) {
+            const arma::Col<int> block_table =
+                    arma::conv_to<arma::Col<int>>::from(
+                            torque::util::generate_index_table(blocks_dimensions.col(i)));
+
+            block_index_tables_in_thrust.push_back(util::arma_to_thrust_device<int>(block_table));
+
+            const arma::Col<int> block_strides =
+                    arma::conv_to<arma::Col<int>>::from(blocks_strides.col(i));
+
+            blocks_strides_in_thrust.push_back(util::arma_to_thrust_device<int>(block_strides));
+
+            dev_blocks_strides[i] = thrust::raw_pointer_cast(blocks_strides_in_thrust[i].data());
+        }
+
+        const auto blocks_starting_points_in_thrust =
+                util::arma_to_thrust_device<int>(blocks_starting_points);
+
+        const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions, arma::uvec{n_blocks});
+
+        const arma::uvec dest_index_table = torque::util::generate_index_table(padded_dest_dimensions);
+
+        thrust::device_vector<T> dest_data(arma::prod(padded_dest_dimensions));
+
+        cudaFree(dev_block_index_tables);
+        cudaFree(dev_blocks_strides);
+    }
+
+}
 
 /// a tensor object that stores blocks of sub-tensors. The blocks may have intersections.
     template<typename T>
