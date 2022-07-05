@@ -71,6 +71,10 @@ namespace block_sparse {
 
             DEBUG(n_blocks)
 
+            DEBUG(block_index_tables_in_thrust.size())
+
+            DEBUG(block_index_tables_in_thrust[0][0])
+
             dev_block_index_tables[i] = thrust::raw_pointer_cast(block_index_tables_in_thrust[i].data());
 
             DEBUG(8)
