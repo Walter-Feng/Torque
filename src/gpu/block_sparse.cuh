@@ -10,6 +10,7 @@
 #include <cublas_v2.h>
 
 #include "gpu/util/thrust_arma_fusion.cuh"
+#include "gpu/util/lib_helper.cuh"
 #include <memory>
 
 #include "error.h"
@@ -23,114 +24,23 @@ namespace block_sparse {
     template<typename T>
     __global__
     void
-    reshape(const T * src_data,
-            const int ** block_index_tables,
-            const int ** blocks_strides,
-            const int * blocks_starting_points,
-            const int * blocks_n_elem_nest_sum,
-            const int n_block,
-            const int n_elem,
-            const int rank,
-            const int * dest_index_table,
-            T * dest_data) {
-
-        const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
-
-        if(i < n_elem) {
-            int block_index = -1;
-            int tensor_index = 0;
-            int dest_index = 0;
-            int tmp;
-            int tensor_residue;
-
-            for(int j=0; j<n_block; j++) {
-                if(i >= blocks_n_elem_nest_sum[j]) {
-                    block_index += 1;
-                } else {
-                    block_index += 0;
-                }
-            }
-
-            tensor_residue = i - blocks_n_elem_nest_sum[block_index];
-
-            for(int j=0; j<rank; j++) {
-
-                tmp = tensor_residue / block_index_tables[block_index][rank - j - 1];
-
-                tensor_index += blocks_strides[block_index][rank - j - 1] * tmp;
-                dest_index += dest_index_table[rank - j - 1] * tmp;
-
-                tensor_residue %= block_index_tables[block_index][rank - j - 1];
-
-            }
-
-            tensor_index += blocks_starting_points[block_index];
-            dest_index += block_index * dest_index_table[rank];
-
-            dest_data[dest_index] = src_data[tensor_index];
-
-        }
-
-    }
-
-    template<typename T>
-    __global__
-    void
-    flatten(const T * src_data,
-            const int * src_index_table,
-            const int ** dest_index_tables,
-            const int ** dest_strides,
-            const int * dest_starting_points,
-            const int * dest_n_elem_nest_sum,
-            const int n_block,
-            const int n_elem,
-            const int rank,
-            T * dest_data) {
-
-        const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
-
-        if(i < n_elem) {
-            int block_index = -1;
-            int tensor_index = 0;
-            int src_index = 0;
-            int tmp;
-            int tensor_residue;
-
-            for(int j=0; j<n_block; j++) {
-                if(i >= dest_n_elem_nest_sum[j]) {
-                    block_index += 1;
-                } else {
-                    block_index += 0;
-                }
-            }
-
-            tensor_residue = i - dest_n_elem_nest_sum[block_index];
-
-            for(int j=0; j<rank; j++) {
-
-                tmp = tensor_residue / dest_index_tables[block_index][rank - j - 1];
-
-                tensor_index += dest_strides[block_index][rank - j - 1] * tmp;
-                src_index += src_index_table[rank - j - 1] * tmp;
-
-                tensor_residue %= dest_index_tables[block_index][rank - j - 1];
-
-            }
-
-            tensor_index += dest_starting_points[block_index];
-            src_index += block_index * src_index_table[rank];
-
-            dest_data[tensor_index] = src_data[src_index];
-        }
-
-    }
+    reshape_kernel(const T * src_data,
+                   int ** block_index_tables,
+                   int ** blocks_strides,
+                   const int * blocks_offsets,
+                   const int * blocks_n_elem_nest_sum,
+                   int n_block,
+                   int n_elem,
+                   int rank,
+                   const int * dest_index_table,
+                   T * dest_data);
 
     template<typename T>
     thrust::device_vector<T>
     reshape(const thrust::device_vector<T> & src_data,
             const arma::umat & blocks_dimensions,
             const arma::umat & blocks_strides,
-            const arma::uvec & blocks_starting_points,
+            const arma::uvec & blocks_offsets,
             const arma::uvec & dest_dimensions) {
 
         const arma::uword n_blocks = blocks_dimensions.n_cols;
@@ -161,8 +71,8 @@ namespace block_sparse {
             dev_blocks_strides[i] = thrust::raw_pointer_cast(blocks_strides_in_thrust[i].data());
         }
 
-        const auto blocks_starting_points_in_thrust =
-                util::arma_to_thrust_device<int>(blocks_starting_points);
+        const auto blocks_offsets_in_thrust =
+                util::arma_to_thrust_device<int>(blocks_offsets);
 
         const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions, arma::uvec{n_blocks});
 
@@ -179,15 +89,15 @@ namespace block_sparse {
         dim3 blockSize(256);
         dim3 gridSize(n_elem / 256 + 1);
 
-        reshape<T><<<blockSize, gridSize>>>(
+        reshape_kernel<T><<<blockSize, gridSize>>>(
                 thrust::raw_pointer_cast(src_data.data()),
                 dev_block_index_tables,
                 dev_blocks_strides,
-                thrust::raw_pointer_cast(blocks_starting_points_in_thrust.data()),
+                thrust::raw_pointer_cast(blocks_offsets_in_thrust.data()),
                 thrust::raw_pointer_cast(n_elem_nest_sum_in_thrust.data()),
-                n_blocks,
-                n_elem,
-                rank,
+                (int) n_blocks,
+                (int) n_elem,
+                (int) rank,
                 thrust::raw_pointer_cast(dest_index_table_in_thrust.data()),
                 thrust::raw_pointer_cast(dest_data.data())
         );
@@ -203,7 +113,7 @@ namespace block_sparse {
     flatten(const thrust::device_vector<T> & src_data,
             const arma::umat & blocks_dimensions,
             const arma::umat & blocks_strides,
-            const arma::uvec & blocks_starting_points,
+            const arma::uvec & blocks_offsets,
             const arma::uvec & dest_dimensions) {
 
         const arma::uword n_blocks = blocks_dimensions.n_cols;
@@ -234,8 +144,8 @@ namespace block_sparse {
             dev_blocks_strides[i] = thrust::raw_pointer_cast(blocks_strides_in_thrust[i].data());
         }
 
-        const auto blocks_starting_points_in_thrust =
-                util::arma_to_thrust_device<int>(blocks_starting_points);
+        const auto blocks_offsets_in_thrust =
+                util::arma_to_thrust_device<int>(blocks_offsets);
 
         const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions, arma::uvec{n_blocks});
 
@@ -256,7 +166,7 @@ namespace block_sparse {
                 thrust::raw_pointer_cast(src_data.data()),
                 dev_block_index_tables,
                 dev_blocks_strides,
-                thrust::raw_pointer_cast(blocks_starting_points_in_thrust.data()),
+                thrust::raw_pointer_cast(blocks_offsets_in_thrust.data()),
                 thrust::raw_pointer_cast(n_elem_nest_sum_in_thrust.data()),
                 n_blocks,
                 n_elem,
@@ -582,19 +492,73 @@ namespace block_sparse {
 
         }
 
-        /// Transposition of the tensors according to the permutation, without changing original data
-        /// \param permutation the permutation indices
-        inline
-        void transpose(const arma::uvec &permutation) {
-
-        }
-
         /// Transposition of the tensors according to the permutation, creating new object with new alignment of data.
         /// This helps keeping the stride of leading dimension equal to 1.
         /// \param permutation the permutation indices
         inline
         BlockSparseTensor<T> hard_transpose(const arma::uvec &permutation) const {
 
+            if (permutation.n_elem != this->rank) {
+                throw Error("The number of permutation does not match the rank of tensor");
+            }
+
+            const arma::uword n_blocks = this->blocks_dimension.n_cols;
+
+            const arma::uvec max_dimension = arma::max(this->blocks_dimension, 1);
+            const arma::uvec new_dimension = this->dimension(permutation);
+            const arma::umat new_blocks_dimension = this->blocks_dimension.rows(permutation);
+            const arma::umat new_begin_points = this->begin_points.rows(permutation);
+            const arma::umat new_end_points = this->end_points.rows(permutation);
+
+            thrust::device_vector<T> workspace = block_sparse::reshape(this->data, this->blocks_dimension,
+                                                                       this->index_tables, this->block_offsets,
+                                                                       max_dimension);
+
+            std::vector<int> dim_in_cutt = std::vector<int>(this->rank + 1);
+            std::vector<int> permutation_in_cutt = std::vector<int>(this->rank+ 1);
+
+            for(arma::uword i=0; i<this->rank; i++) {
+                dim_in_cutt[i] = max_dimension(i);
+                permutation_in_cutt[i] = permutation(i);
+            }
+
+            dim_in_cutt[this->rank] = n_blocks;
+            permutation_in_cutt[this->rank] = this->rank;
+
+            auto new_data = thrust::device_vector<T>(arma::prod(max_dimension) * n_blocks);
+
+            cuttHandle plan;
+
+            cuttCheck(cuttPlan(&plan, this->rank,
+                               dim_in_cutt.data(),
+                               permutation_in_cutt.data(),
+                               sizeof(T), 0));
+
+            cuttCheck(cuttExecute(plan,
+                                  (void *) const_cast<T *>(thrust::raw_pointer_cast(workspace.data())),
+                                  (void *) thrust::raw_pointer_cast(new_data.data())));
+
+            // empty the vector
+            workspace.clear();
+
+            // deallocate any capacity which may currently be associated with vec
+            workspace.shrink_to_fit();
+
+            cuttCheck(cuttDestroy(plan));
+
+            arma::umat new_index_tables(arma::size(begin_points));
+            for (arma::uword i = 0; i < n_blocks; i++) {
+                new_index_tables.col(i) = torque::util::generate_index_table(new_blocks_dimension.col(i));
+            }
+
+            thrust::device_vector<T> flattened =
+                    block_sparse::reshape(new_data,
+                                          new_blocks_dimension,
+                                          new_index_tables,
+                                          this->block_offsets,
+                                          max_dimension(permutation));
+
+            return BlockSparseTensor<T>(std::move(flattened), new_begin_points, new_end_points, new_dimension);
         }
 
     protected:

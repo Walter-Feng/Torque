@@ -28,32 +28,32 @@ TEST_CASE("block sparse tensor operation") {
         CHECK(tensor.query({1, 1}) == 5);
 
     }
-//
-//    SECTION("block sparse matrix transposition") {
-//        const int rank = 2; // Matrix
-//        std::vector<float> a = {1, 2, 3, 4}; // 2x2 sub block
-//
-//        const arma::uvec dimension = {4, 3}; // 4x3 matrix
-//
-//        // 0 0 0
-//        // 0 0 0
-//        // 1 3 0
-//        // 2 4 0
-//        torque::gpu::BlockSparseTensor<float> tensor(a.data(), arma::uvec{2, 0}, arma::uvec{3, 1}, dimension);
-//
-//        // 0 0 1 2
-//        // 0 0 3 4
-//        // 0 0 0 0
-//        tensor.soft_transpose({1, 0});
-//
-//        CHECK(tensor.query({0, 3}) == 2);
-//        CHECK(tensor.query({1, 2}) == 3);
-//
-//        const auto original_tensor = tensor.hard_transpose({1, 0});
-//
-//        CHECK(original_tensor.query({3, 0}) == 2);
-//        CHECK(original_tensor.query({2, 1}) == 3);
-//    }
+
+    SECTION("block sparse matrix transposition") {
+        const int rank = 2; // Matrix
+        std::vector<float> a = {1, 2, 3, 4}; // 2x2 sub block
+
+        const arma::uvec dimension = {4, 3}; // 4x3 matrix
+
+        // 0 0 0
+        // 0 0 0
+        // 1 3 0
+        // 2 4 0
+        torque::gpu::BlockSparseTensor<float> tensor(a.data(), arma::uvec{2, 0}, arma::uvec{3, 1}, dimension);
+
+        // 0 0 1 2
+        // 0 0 3 4
+        // 0 0 0 0
+        tensor = tensor.hard_transpose({1, 0});
+
+        CHECK(tensor.query({0, 3}) == 2);
+        CHECK(tensor.query({1, 2}) == 3);
+
+        const auto original_tensor = tensor.hard_transpose({1, 0});
+
+        CHECK(original_tensor.query({3, 0}) == 2);
+        CHECK(original_tensor.query({2, 1}) == 3);
+    }
 
     SECTION("block sparse tensor initialization") {
         const int rank = 3;
