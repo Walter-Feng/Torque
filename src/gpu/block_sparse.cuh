@@ -67,6 +67,10 @@ namespace block_sparse {
 
             block_index_tables_in_thrust.push_back(util::arma_to_thrust_device<int>(block_table));
 
+            DEBUG(10086)
+
+            DEBUG(n_blocks)
+
             dev_block_index_tables[i] = thrust::raw_pointer_cast(block_index_tables_in_thrust[i].data());
 
             DEBUG(8)
