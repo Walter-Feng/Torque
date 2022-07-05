@@ -163,6 +163,7 @@ cudaDataType_t cutensor_data_type() {
             }
         }
 
+        inline
         DenseTensor(DenseTensor &&tensor)  noexcept :
             rank(std::move(tensor.rank)),
             dimension(std::move(tensor.dimension)),
