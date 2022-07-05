@@ -27,8 +27,8 @@ namespace block_sparse {
     __global__
     void
     reshape_kernel(const T * src_data,
-                   int ** block_index_tables,
-                   int ** blocks_strides,
+                   int * block_index_tables,
+                   int * blocks_strides,
                    const int * blocks_offsets,
                    const int * blocks_n_elem_nest_sum,
                    int n_block,
@@ -48,43 +48,29 @@ namespace block_sparse {
         const arma::uword n_blocks = blocks_dimensions.n_cols;
         const arma::uword rank = blocks_dimensions.n_rows;
 
-        int ** dev_block_index_tables;
-        int ** dev_blocks_strides;
-        cudaMalloc(&dev_block_index_tables, n_blocks * sizeof(int **));
-        cudaMalloc(&dev_blocks_strides, n_blocks * sizeof(int **));
-
-        std::vector<thrust::device_vector<int>> block_index_tables_in_thrust;
-        std::vector<thrust::device_vector<int>> blocks_strides_in_thrust;
+        thrust::device_vector<int> dev_block_index_tables(n_blocks * rank);
+        thrust::device_vector<int> dev_blocks_strides(n_blocks * rank);
 
         DEBUG(1)
 
         for(int i=0; i<n_blocks; i++) {
-            const arma::Col<int> block_table =
-                    arma::conv_to<arma::Col<int>>::from(
-                            torque::util::generate_index_table(blocks_dimensions.col(i)));
+            const auto table_slice =
+                    util::arma_to_thrust_device<int>(
+                            arma::conv_to<arma::Col<int>>::from(
+                                    torque::util::generate_index_table(blocks_dimensions.col(i))));
 
-            DEBUG(7)
+            thrust::copy(table_slice.begin(), table_slice.end(),
+                         dev_block_index_tables.begin() + i * rank);
 
-            block_index_tables_in_thrust.push_back(util::arma_to_thrust_device<int>(block_table));
-
-            DEBUG(10086)
-
-            DEBUG(n_blocks)
-
-            DEBUG(block_index_tables_in_thrust.size())
-
-            DEBUG(block_index_tables_in_thrust[0][0])
-
-            dev_block_index_tables[i] = thrust::raw_pointer_cast(block_index_tables_in_thrust[i].data());
 
             DEBUG(8)
-            const arma::Col<int> block_strides =
-                    arma::conv_to<arma::Col<int>>::from(blocks_strides.col(i));
+            const auto block_strides_slice =
+                    util::arma_to_thrust_device<int>(
+                            arma::conv_to<arma::Col<int>>::from(
+                                    torque::util::generate_index_table(blocks_strides.col(i))));
 
-            blocks_strides_in_thrust.push_back(util::arma_to_thrust_device<int>(block_strides));
-
-            dev_blocks_strides[i] = thrust::raw_pointer_cast(blocks_strides_in_thrust[i].data());
-
+            thrust::copy(block_strides_slice.begin(), block_strides_slice.end(),
+                         dev_blocks_strides.begin() + i * rank);
             DEBUG(9)
         }
 
@@ -121,9 +107,6 @@ namespace block_sparse {
                 thrust::raw_pointer_cast(dest_index_table_in_thrust.data()),
                 thrust::raw_pointer_cast(dest_data.data())
         );
-
-        cudaFree(dev_block_index_tables);
-        cudaFree(dev_blocks_strides);
 
         return dest_data;
     }

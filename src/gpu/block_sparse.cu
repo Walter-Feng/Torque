@@ -9,10 +9,10 @@ namespace block_sparse {
     __global__
     void
     reshape_kernel(const T *src_data,
-                   int **block_index_tables,
-                   int **blocks_strides,
-                   const int *blocks_offsets,
-                   const int *blocks_n_elem_nest_sum,
+                   const int * block_index_tables,
+                   const int * blocks_strides,
+                   const int * blocks_offsets,
+                   const int * blocks_n_elem_nest_sum,
                    int n_block,
                    int n_elem,
                    int rank,
@@ -42,12 +42,12 @@ namespace block_sparse {
 
             for (int j = 0; j < rank; j++) {
 
-                tmp = tensor_residue / block_index_tables[block_index][rank - j - 1];
+                tmp = tensor_residue / block_index_tables[block_index * rank + rank - j - 1];
 
-                tensor_index += blocks_strides[block_index][rank - j - 1] * tmp;
+                tensor_index += blocks_strides[block_index * rank + rank - j - 1] * tmp;
                 dest_index += dest_index_table[rank - j - 1] * tmp;
 
-                tensor_residue %= block_index_tables[block_index][rank - j - 1];
+                tensor_residue %= block_index_tables[block_index * rank + rank - j - 1];
 
             }
 
@@ -65,8 +65,8 @@ namespace block_sparse {
     __global__
     void
     reshape_kernel(const float *src_data,
-                   int **block_index_tables,
-                   int **blocks_strides,
+                   const int * block_index_tables,
+                   const int * blocks_strides,
                    const int *blocks_offsets,
                    const int *blocks_n_elem_nest_sum,
                    int n_block,
@@ -79,8 +79,8 @@ namespace block_sparse {
     __global__
     void
     reshape_kernel(const double *src_data,
-                   int **block_index_tables,
-                   int **blocks_strides,
+                   const int * block_index_tables,
+                   const int * blocks_strides,
                    const int *blocks_offsets,
                    const int *blocks_n_elem_nest_sum,
                    int n_block,
@@ -93,8 +93,8 @@ namespace block_sparse {
     __global__
     void
     reshape_kernel(const half *src_data,
-                   int **block_index_tables,
-                   int **blocks_strides,
+                   const int * block_index_tables,
+                   const int * blocks_strides,
                    const int *blocks_offsets,
                    const int *blocks_n_elem_nest_sum,
                    int n_block,
