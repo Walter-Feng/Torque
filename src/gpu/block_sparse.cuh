@@ -63,16 +63,21 @@ namespace block_sparse {
                     arma::conv_to<arma::Col<int>>::from(
                             torque::util::generate_index_table(blocks_dimensions.col(i)));
 
+            DEBUG(7)
+
             block_index_tables_in_thrust.push_back(util::arma_to_thrust_device<int>(block_table));
 
             dev_block_index_tables[i] = thrust::raw_pointer_cast(block_index_tables_in_thrust[i].data());
 
+            DEBUG(8)
             const arma::Col<int> block_strides =
                     arma::conv_to<arma::Col<int>>::from(blocks_strides.col(i));
 
             blocks_strides_in_thrust.push_back(util::arma_to_thrust_device<int>(block_strides));
 
             dev_blocks_strides[i] = thrust::raw_pointer_cast(blocks_strides_in_thrust[i].data());
+
+            DEBUG(9)
         }
 
         DEBUG(2)
