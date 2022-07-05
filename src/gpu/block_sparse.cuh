@@ -50,8 +50,8 @@ namespace block_sparse {
 
         int ** dev_block_index_tables;
         int ** dev_blocks_strides;
-        cudaMalloc(&dev_block_index_tables, n_blocks);
-        cudaMalloc(&dev_blocks_strides, n_blocks);
+        cudaMalloc(&dev_block_index_tables, n_blocks * sizeof(int **));
+        cudaMalloc(&dev_blocks_strides, n_blocks * sizeof(int **));
 
         std::vector<thrust::device_vector<int>> block_index_tables_in_thrust;
         std::vector<thrust::device_vector<int>> blocks_strides_in_thrust;
