@@ -5,6 +5,8 @@
 
 #define ARMA_ALLOW_FAKE_GCC
 
+#define DEBUG(x) do { printf("shit bug marker %d \n", x); } while (0) ;
+
 #include <armadillo>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -54,6 +56,8 @@ namespace block_sparse {
         std::vector<thrust::device_vector<int>> block_index_tables_in_thrust;
         std::vector<thrust::device_vector<int>> blocks_strides_in_thrust;
 
+        DEBUG(1)
+
         for(int i=0; i<n_blocks; i++) {
             const arma::Col<int> block_table =
                     arma::conv_to<arma::Col<int>>::from(
@@ -71,6 +75,7 @@ namespace block_sparse {
             dev_blocks_strides[i] = thrust::raw_pointer_cast(blocks_strides_in_thrust[i].data());
         }
 
+        DEBUG(2)
         const auto blocks_offsets_in_thrust =
                 util::arma_to_thrust_device<int>(blocks_offsets);
 
@@ -88,6 +93,8 @@ namespace block_sparse {
 
         dim3 blockSize(256);
         dim3 gridSize(n_elem / 256 + 1);
+
+        DEBUG(3)
 
         reshape_kernel<T><<<blockSize, gridSize>>>(
                 thrust::raw_pointer_cast(src_data.data()),
