@@ -8,7 +8,7 @@ namespace block_sparse {
     template<typename T, bool reverse>
     __global__
     void
-    reshape_kernel(const T *src_data,
+    reshape_kernel(const T * src_data,
                    const int * block_index_tables,
                    const int * blocks_strides,
                    const int * blocks_offsets,
@@ -16,8 +16,8 @@ namespace block_sparse {
                    int n_block,
                    int n_elem,
                    int rank,
-                   const int *dest_index_table,
-                   T *dest_data) {
+                   const int * dest_index_table,
+                   T * dest_data) {
 
         const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -64,72 +64,72 @@ namespace block_sparse {
     template
     __global__
     void
-    reshape_kernel<float, true>(const float *src_data,
+    reshape_kernel<float, true>(const float * src_data,
                                 const int * block_index_tables,
                                 const int * blocks_strides,
-                                const int *blocks_offsets,
-                                const int *blocks_n_elem_nest_sum,
+                                const int * blocks_offsets,
+                                const int * blocks_n_elem_nest_sum,
                                 int n_block,
                                 int n_elem,
                                 int rank,
-                                const int *dest_index_table,
-                                float *dest_data);
+                                const int * dest_index_table,
+                                float * dest_data);
 
     template
     __global__
     void
-    reshape_kernel<double, true>(const double *src_data,
+    reshape_kernel<double, true>(const double * src_data,
                                  const int * block_index_tables,
                                  const int * blocks_strides,
-                                 const int *blocks_offsets,
-                                 const int *blocks_n_elem_nest_sum,
+                                 const int * blocks_offsets,
+                                 const int * blocks_n_elem_nest_sum,
                                  int n_block,
                                  int n_elem,
                                  int rank,
-                                 const int *dest_index_table,
-                                 double *dest_data);
+                                 const int * dest_index_table,
+                                 double * dest_data);
 
     template
     __global__
     void
-    reshape_kernel<half, true>(const half *src_data,
+    reshape_kernel<half, true>(const half * src_data,
                                const int * block_index_tables,
                                const int * blocks_strides,
-                               const int *blocks_offsets,
-                               const int *blocks_n_elem_nest_sum,
+                               const int * blocks_offsets,
+                               const int * blocks_n_elem_nest_sum,
                                int n_block,
                                int n_elem,
                                int rank,
-                               const int *dest_index_table,
-                               half *dest_data);
+                               const int * dest_index_table,
+                               half * dest_data);
 
     template
     __global__
     void
-    reshape_kernel<float, false>(const float *src_data,
+    reshape_kernel<float, false>(const float * src_data,
                                  const int * block_index_tables,
                                  const int * blocks_strides,
-                                 const int *blocks_offsets,
-                                 const int *blocks_n_elem_nest_sum,
+                                 const int * blocks_offsets,
+                                 const int * blocks_n_elem_nest_sum,
                                  int n_block,
                                  int n_elem,
                                  int rank,
-                                 const int *dest_index_table,
-                                 float *dest_data);
+                                 const int * dest_index_table,
+                                 float * dest_data);
 
     template
     __global__
     void
-    reshape_kernel<double, false>(const double *src_data,
+    reshape_kernel<double, false>(const double * src_data,
                                   const int * block_index_tables,
                                   const int * blocks_strides,
-                                  const int *blocks_offsets,
-                                  const int *blocks_n_elem_nest_sum,
+                                  const int * blocks_offsets,
+                                  const int * blocks_n_elem_nest_sum,
                                   int n_block,
                                   int n_elem,
                                   int rank,
-                                  const int *dest_index_table,
-                                  double *dest_data);
+                                  const int * dest_index_table,
+                                  double * dest_data);
 
     template
     __global__
@@ -137,13 +137,13 @@ namespace block_sparse {
     reshape_kernel<half, false>(const half *src_data,
                                 const int * block_index_tables,
                                 const int * blocks_strides,
-                                const int *blocks_offsets,
-                                const int *blocks_n_elem_nest_sum,
+                                const int * blocks_offsets,
+                                const int * blocks_n_elem_nest_sum,
                                 int n_block,
                                 int n_elem,
                                 int rank,
-                                const int *dest_index_table,
-                                half *dest_data);
+                                const int * dest_index_table,
+                                half * dest_data);
 }
 }
 }

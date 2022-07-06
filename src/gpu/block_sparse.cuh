@@ -26,7 +26,7 @@ namespace block_sparse {
     template<typename T, bool reverse>
     __global__
     void
-    reshape_kernel(const T *src_data,
+    reshape_kernel(const T * src_data,
                    const int * block_index_tables,
                    const int * blocks_strides,
                    const int * blocks_offsets,
@@ -34,8 +34,8 @@ namespace block_sparse {
                    int n_block,
                    int n_elem,
                    int rank,
-                   const int *dest_index_table,
-                   T *dest_data);
+                   const int * dest_index_table,
+                   T * dest_data);
 
     template<typename T, bool reverse>
     thrust::device_vector<T>
