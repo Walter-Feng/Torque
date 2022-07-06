@@ -53,11 +53,25 @@ namespace block_sparse {
             blocks_index_tables = torque::util::generate_index_table(blocks_dimensions.col(i));
         }
 
+        blocks_index_tables.print("blocks_index_tables");
+
         thrust::device_vector<int> dev_block_index_tables =
                 util::arma_to_thrust_device<int>(arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_index_tables)));
 
+        std::cout << "dev_block_index_tables" << std::endl;
+        for(int i=0; i<dev_block_index_tables.size(); i++) {
+            std::cout << dev_block_index_tables[i] << " ";
+        }
+        std::cout << std::endl;
+
         const auto dev_blocks_strides =
                 util::arma_to_thrust_device<int>(arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_strides)));
+
+        std::cout << "dev_blocks_strides" << std::endl;
+        for(int i=0; i<dev_blocks_strides.size(); i++) {
+            std::cout << dev_blocks_strides[i] << " ";
+        }
+        std::cout << std::endl;
 
         const auto blocks_offsets_in_thrust =
                 util::arma_to_thrust_device<int>(blocks_offsets);
@@ -434,6 +448,7 @@ namespace block_sparse {
             for(int i=0; i<workspace.size(); i++) {
                 std::cout << workspace[i] << " ";
             }
+            std::cout << std::endl;
 
             const arma::uvec padded_max_dimension = arma::join_vert(max_dimension, arma::uvec{n_blocks});
             const arma::uvec padded_permutation = arma::join_vert(permutation, arma::uvec{this->rank});
@@ -481,6 +496,7 @@ namespace block_sparse {
             for(int i=0; i<new_data.size(); i++) {
                 std::cout << new_data[i] << " ";
             }
+            std::cout << std::endl;
 
             thrust::device_vector<T> flattened =
                     block_sparse::reshape<T, true>(new_data,
