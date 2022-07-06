@@ -46,8 +46,8 @@ TEST_CASE("block sparse tensor operation") {
         // 0 0 0 0
         tensor = tensor.hard_transpose({1, 0});
 
-        original_tensor.dimension.print("dimension");
-        original_tensor.block_offsets.print("block_offsets");
+        tensor.dimension.print("dimension");
+        tensor.block_offsets.print("block_offsets");
 
         CHECK(tensor.query({0, 3}) == 2);
         CHECK(tensor.query({1, 2}) == 3);
