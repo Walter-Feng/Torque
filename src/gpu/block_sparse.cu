@@ -12,7 +12,6 @@ namespace block_sparse {
                    const int * block_index_tables,
                    const int * blocks_strides,
                    const int * blocks_offsets,
-                   const int * blocks_n_elem_nest_sum,
                    int n_block,
                    int n_elem,
                    int rank,
@@ -24,38 +23,38 @@ namespace block_sparse {
         if (i < n_elem) {
             int block_index = -1;
             int tensor_index = 0;
-            int dest_index = 0;
+            int stacked_index = 0;
             int tmp;
-            int tensor_residue;
 
             for (int j = 0; j < n_block; j++) {
-                if (i >= blocks_n_elem_nest_sum[j]) {
+                if (i >= blocks_offsets[j]) {
                     block_index += 1;
                 } else {
                     block_index += 0;
                 }
             }
 
-            tensor_residue = i - blocks_n_elem_nest_sum[block_index];
+            int block_offset = blocks_offsets[block_index];
+            int tensor_residue = i - block_offset;
 
             for (int j = 0; j < rank; j++) {
 
                 tmp = tensor_residue / block_index_tables[block_index * rank + rank - j - 1];
 
                 tensor_index += blocks_strides[block_index * rank + rank - j - 1] * tmp;
-                dest_index += dest_index_table[rank - j - 1] * tmp;
+                stacked_index += dest_index_table[rank - j - 1] * tmp;
 
                 tensor_residue %= block_index_tables[block_index * rank + rank - j - 1];
 
             }
 
-            tensor_index += blocks_offsets[block_index];
-            dest_index += block_index * dest_index_table[rank];
+            tensor_index += block_offset;
+            stacked_index += block_index * dest_index_table[rank];
 
             if constexpr(reverse) {
-                dest_data[tensor_index] = src_data[dest_index];
+                dest_data[tensor_index] = src_data[stacked_index];
             } else {
-                dest_data[dest_index] = src_data[tensor_index];
+                dest_data[stacked_index] = src_data[tensor_index];
             }
         }
 
@@ -68,7 +67,6 @@ namespace block_sparse {
                                 const int * block_index_tables,
                                 const int * blocks_strides,
                                 const int * blocks_offsets,
-                                const int * blocks_n_elem_nest_sum,
                                 int n_block,
                                 int n_elem,
                                 int rank,
@@ -82,7 +80,6 @@ namespace block_sparse {
                                  const int * block_index_tables,
                                  const int * blocks_strides,
                                  const int * blocks_offsets,
-                                 const int * blocks_n_elem_nest_sum,
                                  int n_block,
                                  int n_elem,
                                  int rank,
@@ -96,7 +93,6 @@ namespace block_sparse {
                                const int * block_index_tables,
                                const int * blocks_strides,
                                const int * blocks_offsets,
-                               const int * blocks_n_elem_nest_sum,
                                int n_block,
                                int n_elem,
                                int rank,
@@ -110,7 +106,6 @@ namespace block_sparse {
                                  const int * block_index_tables,
                                  const int * blocks_strides,
                                  const int * blocks_offsets,
-                                 const int * blocks_n_elem_nest_sum,
                                  int n_block,
                                  int n_elem,
                                  int rank,
@@ -124,7 +119,6 @@ namespace block_sparse {
                                   const int * block_index_tables,
                                   const int * blocks_strides,
                                   const int * blocks_offsets,
-                                  const int * blocks_n_elem_nest_sum,
                                   int n_block,
                                   int n_elem,
                                   int rank,
@@ -138,7 +132,6 @@ namespace block_sparse {
                                 const int * block_index_tables,
                                 const int * blocks_strides,
                                 const int * blocks_offsets,
-                                const int * blocks_n_elem_nest_sum,
                                 int n_block,
                                 int n_elem,
                                 int rank,

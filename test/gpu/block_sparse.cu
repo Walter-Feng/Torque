@@ -46,17 +46,10 @@ TEST_CASE("block sparse tensor operation") {
         // 0 0 0 0
         tensor = tensor.hard_transpose({1, 0});
 
-        tensor.dimension.print("dimension");
-        tensor.block_offsets.print("block_offsets");
-
         CHECK(tensor.query({0, 3}) == 2);
         CHECK(tensor.query({1, 2}) == 3);
 
         const auto original_tensor = tensor.hard_transpose({1, 0});
-
-
-        original_tensor.dimension.print("dimension");
-        original_tensor.block_offsets.print("block_offsets");
 
         CHECK(original_tensor.query({3, 0}) == 2);
         CHECK(original_tensor.query({2, 1}) == 3);
@@ -75,23 +68,23 @@ TEST_CASE("block sparse tensor operation") {
         tensor.append_block(a.data(), {0, 0, 0}, {1, 1, 2}, {1, 2, 4});
         CHECK(tensor.query({0,1,2}) == 11);
     }
-//
-//    SECTION("block sparse tensor transposition") {
-//        const int rank = 3; // Matrix
-//        const arma::uvec dimension = {2, 2, 3}; // 4x3 matrix
-//
-//        std::vector<float> a = {1, 2, 3, 4, 5, 6};
-//        std::vector<float> b = {7, 8, 9, 10, 11, 12};
-//
-//        torque::gpu::BlockSparseTensor<float> tensor(dimension);
-//        tensor.append_block(a.data(), {0, 0, 0}, {0, 1, 2}, {0, 1, 2});
-//        tensor.append_block(b.data(), {1, 0, 0}, {1, 1, 2}, {0, 1, 2});
-//
-//        const auto tensor_another_transpose = tensor.hard_transpose({1,0,2});
-//        CHECK(tensor_another_transpose.query({1, 0, 0}) == 2);
-//        CHECK(tensor_another_transpose.query({1, 0, 1}) == 4);
-//        CHECK(tensor_another_transpose.query({1, 1, 2}) == 12);
-//    }
+
+    SECTION("block sparse tensor transposition") {
+        const int rank = 3; // Matrix
+        const arma::uvec dimension = {2, 2, 3}; // 4x3 matrix
+
+        std::vector<float> a = {1, 2, 3, 4, 5, 6, 0, 0, 0, 0, 0, 0};
+        std::vector<float> b = {7, 8, 9, 10, 11, 12};
+
+        torque::gpu::BlockSparseTensor<float> tensor(dimension);
+        tensor.append_block(a.data(), {0, 0, 0}, {1, 1, 2}, {1, 2, 4});
+        tensor.append_block(b.data(), {1, 0, 0}, {1, 1, 2}, {1, 1, 2});
+
+        const auto tensor_another_transpose = tensor.hard_transpose({1,0,2});
+        CHECK(tensor_another_transpose.query({1, 0, 0}) == 2);
+        CHECK(tensor_another_transpose.query({1, 0, 1}) == 4);
+        CHECK(tensor_another_transpose.query({1, 1, 2}) == 12);
+    }
 
     SECTION("scalar") {
 

@@ -30,7 +30,6 @@ namespace block_sparse {
                    const int * block_index_tables,
                    const int * blocks_strides,
                    const int * blocks_offsets,
-                   const int * blocks_n_elem_nest_sum,
                    int n_block,
                    int n_elem,
                    int rank,
@@ -48,26 +47,17 @@ namespace block_sparse {
         const arma::uword n_blocks = blocks_dimensions.n_cols;
         const arma::uword rank = blocks_dimensions.n_rows;
 
-        thrust::device_vector<int> dev_block_index_tables(n_blocks * rank);
-        thrust::device_vector<int> dev_blocks_strides(n_blocks * rank);
+        arma::umat blocks_index_tables(arma::size(blocks_dimensions));
 
         for(int i=0; i<n_blocks; i++) {
-            const auto table_slice =
-                    util::arma_to_thrust_device<int>(
-                            arma::conv_to<arma::Col<int>>::from(
-                                    torque::util::generate_index_table(blocks_dimensions.col(i))));
-
-            thrust::copy(table_slice.begin(), table_slice.end(),
-                         dev_block_index_tables.begin() + i * rank);
-
-            const auto block_strides_slice =
-                    util::arma_to_thrust_device<int>(
-                            arma::conv_to<arma::Col<int>>::from(
-                                    torque::util::generate_index_table(blocks_strides.col(i))));
-
-            thrust::copy(block_strides_slice.begin(), block_strides_slice.end(),
-                         dev_blocks_strides.begin() + i * rank);
+            blocks_index_tables = torque::util::generate_index_table(blocks_dimensions.col(i));
         }
+
+        thrust::device_vector<int> dev_block_index_tables =
+                util::arma_to_thrust_device<int>(arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_index_tables)));
+
+        const auto dev_blocks_strides =
+                util::arma_to_thrust_device<int>(arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_strides)));
 
         const auto blocks_offsets_in_thrust =
                 util::arma_to_thrust_device<int>(blocks_offsets);
@@ -79,7 +69,7 @@ namespace block_sparse {
 
         thrust::device_vector<T> dest_data(arma::prod(padded_dest_dimensions));
 
-        const arma::uvec n_elem_nest_sum = arma::cumsum(arma::prod(blocks_dimensions));
+        const arma::uvec n_elem_nest_sum = arma::cumsum(arma::prod(blocks_dimensions).t());
         const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
 
         const thrust::device_vector<int> n_elem_nest_sum_in_thrust = util::arma_to_thrust_device<int>(n_elem_nest_sum);
@@ -92,7 +82,6 @@ namespace block_sparse {
                 thrust::raw_pointer_cast(dev_block_index_tables.data()),
                 thrust::raw_pointer_cast(dev_blocks_strides.data()),
                 thrust::raw_pointer_cast(blocks_offsets_in_thrust.data()),
-                thrust::raw_pointer_cast(n_elem_nest_sum_in_thrust.data()),
                 (int) n_blocks,
                 (int) n_elem,
                 (int) rank,
@@ -441,27 +430,32 @@ namespace block_sparse {
                     this->index_tables, this->block_offsets,
                     max_dimension);
 
-            std::cout << "workspace " << std::endl;
+            std::cout << "workspace" << std::endl;
             for(int i=0; i<workspace.size(); i++) {
-                std::cout << workspace[i] << std::endl;
+                std::cout << workspace[i] << " ";
             }
 
-            std::vector<int> dim_in_cutt = std::vector<int>(this->rank + 1);
-            std::vector<int> permutation_in_cutt = std::vector<int>(this->rank+ 1);
+            const arma::uvec padded_max_dimension = arma::join_vert(max_dimension, arma::uvec{n_blocks});
+            const arma::uvec padded_permutation = arma::join_vert(permutation, arma::uvec{this->rank});
 
-            for(arma::uword i=0; i<this->rank; i++) {
-                dim_in_cutt[i] = max_dimension(i);
-                permutation_in_cutt[i] = permutation(i);
+            const arma::uvec non_trivial_dimension = arma::find(padded_max_dimension != 1);
+
+            const int cutt_rank = non_trivial_dimension.n_elem;
+
+            std::vector<int> dim_in_cutt = std::vector<int>(cutt_rank);
+            std::vector<int> permutation_in_cutt = std::vector<int>(cutt_rank);
+
+            for(arma::uword i=0; i<cutt_rank; i++) {
+                dim_in_cutt[i] = padded_max_dimension(non_trivial_dimension(i));
+                permutation_in_cutt[i] = padded_permutation(non_trivial_dimension(i));
             }
 
-            dim_in_cutt[this->rank] = n_blocks;
-            permutation_in_cutt[this->rank] = this->rank;
+            auto new_data = thrust::device_vector<T>(arma::prod(padded_max_dimension));
 
-            auto new_data = thrust::device_vector<T>(arma::prod(max_dimension) * n_blocks);
 
             cuttHandle plan;
 
-            cuttCheck(cuttPlan(&plan, this->rank,
+            cuttCheck(cuttPlan(&plan, cutt_rank,
                                dim_in_cutt.data(),
                                permutation_in_cutt.data(),
                                sizeof(T), 0));
@@ -483,6 +477,11 @@ namespace block_sparse {
                 new_index_tables.col(i) = torque::util::generate_index_table(new_blocks_dimension.col(i));
             }
 
+            std::cout << "new_data" << std::endl;
+            for(int i=0; i<new_data.size(); i++) {
+                std::cout << new_data[i] << " ";
+            }
+
             thrust::device_vector<T> flattened =
                     block_sparse::reshape<T, true>(new_data,
                                           new_blocks_dimension,
@@ -490,10 +489,6 @@ namespace block_sparse {
                                           this->block_offsets,
                                           max_dimension(permutation));
 
-            std::cout << "flattened " << std::endl;
-            for(int i=0; i<flattened.size(); i++) {
-                std::cout << flattened[i] << std::endl;
-            }
             return BlockSparseTensor<T>(std::move(flattened), new_begin_points, new_end_points, new_dimension);
         }
 
