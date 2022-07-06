@@ -260,12 +260,14 @@ namespace block_sparse {
         inline
         BlockSparseTensor& operator=(BlockSparseTensor<T>&& other)  noexcept {
             rank = std::move(other.rank);
+            dimension(std::move(other.dimension)),
             blocks_dimension = std::move(other.blocks_dimension);
             begin_points = std::move(other.begin_points);
             end_points = std::move(other.end_points);
             block_n_elem = std::move(other.block_n_elem);
             block_offsets = std::move(other.block_offsets);
             index_tables = std::move(other.index_tables);
+            data = std::move(other.data);
 
             return *this;
         }
