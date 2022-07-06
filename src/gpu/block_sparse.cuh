@@ -50,7 +50,7 @@ namespace block_sparse {
         arma::umat blocks_index_tables(arma::size(blocks_dimensions));
 
         for(int i=0; i<n_blocks; i++) {
-            blocks_index_tables = torque::util::generate_index_table(blocks_dimensions.col(i));
+            blocks_index_tables.col(i) = torque::util::generate_index_table(blocks_dimensions.col(i));
         }
 
         blocks_index_tables.print("blocks_index_tables");
