@@ -81,8 +81,8 @@ TEST_CASE("block sparse tensor operation") {
         tensor.append_block(b.data(), {1, 0, 0}, {1, 1, 2}, {1, 1, 2});
 
         const auto tensor_another_transpose = tensor.hard_transpose({1,0,2});
-        CHECK(tensor_another_transpose.query({1, 0, 0}) == 2);
-        CHECK(tensor_another_transpose.query({1, 0, 1}) == 4);
+        CHECK(tensor_another_transpose.query({1, 0, 0}) == 3);
+        CHECK(tensor_another_transpose.query({1, 0, 1}) == 0);
         CHECK(tensor_another_transpose.query({1, 1, 2}) == 12);
     }
 
