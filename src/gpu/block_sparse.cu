@@ -5,7 +5,7 @@
 namespace torque {
 namespace gpu {
 namespace block_sparse {
-    template<typename T>
+    template<typename T, bool reverse>
     __global__
     void
     reshape_kernel(const T *src_data,
@@ -55,7 +55,11 @@ namespace block_sparse {
             tensor_index += blocks_offsets[block_index];
             dest_index += block_index * dest_index_table[rank];
 
-            dest_data[dest_index] = src_data[tensor_index];
+            if constexpr(reverse) {
+                dest_data[tensor_index] = src_data[dest_index];
+            } else {
+                dest_data[dest_index] = src_data[tensor_index];
+            }
             DEBUG(6)
         }
 
@@ -64,45 +68,86 @@ namespace block_sparse {
     template
     __global__
     void
-    reshape_kernel(const float *src_data,
-                   const int * block_index_tables,
-                   const int * blocks_strides,
-                   const int *blocks_offsets,
-                   const int *blocks_n_elem_nest_sum,
-                   int n_block,
-                   int n_elem,
-                   int rank,
-                   const int *dest_index_table,
-                   float *dest_data);
+    reshape_kernel<float, true>(const float *src_data,
+                                const int * block_index_tables,
+                                const int * blocks_strides,
+                                const int *blocks_offsets,
+                                const int *blocks_n_elem_nest_sum,
+                                int n_block,
+                                int n_elem,
+                                int rank,
+                                const int *dest_index_table,
+                                float *dest_data);
 
     template
     __global__
     void
-    reshape_kernel(const double *src_data,
-                   const int * block_index_tables,
-                   const int * blocks_strides,
-                   const int *blocks_offsets,
-                   const int *blocks_n_elem_nest_sum,
-                   int n_block,
-                   int n_elem,
-                   int rank,
-                   const int *dest_index_table,
-                   double *dest_data);
+    reshape_kernel<double, true>(const double *src_data,
+                                 const int * block_index_tables,
+                                 const int * blocks_strides,
+                                 const int *blocks_offsets,
+                                 const int *blocks_n_elem_nest_sum,
+                                 int n_block,
+                                 int n_elem,
+                                 int rank,
+                                 const int *dest_index_table,
+                                 double *dest_data);
 
     template
     __global__
     void
-    reshape_kernel(const half *src_data,
-                   const int * block_index_tables,
-                   const int * blocks_strides,
-                   const int *blocks_offsets,
-                   const int *blocks_n_elem_nest_sum,
-                   int n_block,
-                   int n_elem,
-                   int rank,
-                   const int *dest_index_table,
-                   half *dest_data);
+    reshape_kernel<half, true>(const half *src_data,
+                               const int * block_index_tables,
+                               const int * blocks_strides,
+                               const int *blocks_offsets,
+                               const int *blocks_n_elem_nest_sum,
+                               int n_block,
+                               int n_elem,
+                               int rank,
+                               const int *dest_index_table,
+                               half *dest_data);
 
+    template
+    __global__
+    void
+    reshape_kernel<float, false>(const float *src_data,
+                                 const int * block_index_tables,
+                                 const int * blocks_strides,
+                                 const int *blocks_offsets,
+                                 const int *blocks_n_elem_nest_sum,
+                                 int n_block,
+                                 int n_elem,
+                                 int rank,
+                                 const int *dest_index_table,
+                                 float *dest_data);
+
+    template
+    __global__
+    void
+    reshape_kernel<double, false>(const double *src_data,
+                                  const int * block_index_tables,
+                                  const int * blocks_strides,
+                                  const int *blocks_offsets,
+                                  const int *blocks_n_elem_nest_sum,
+                                  int n_block,
+                                  int n_elem,
+                                  int rank,
+                                  const int *dest_index_table,
+                                  double *dest_data);
+
+    template
+    __global__
+    void
+    reshape_kernel<half, false>(const half *src_data,
+                                const int * block_index_tables,
+                                const int * blocks_strides,
+                                const int *blocks_offsets,
+                                const int *blocks_n_elem_nest_sum,
+                                int n_block,
+                                int n_elem,
+                                int rank,
+                                const int *dest_index_table,
+                                half *dest_data);
 }
 }
 }

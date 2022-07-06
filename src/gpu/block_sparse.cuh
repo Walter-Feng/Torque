@@ -23,21 +23,21 @@ namespace torque {
 namespace gpu {
 namespace block_sparse {
 
-    template<typename T>
+    template<typename T, bool reverse>
     __global__
     void
-    reshape_kernel(const T * src_data,
-                   int * block_index_tables,
-                   int * blocks_strides,
+    reshape_kernel(const T *src_data,
+                   const int * block_index_tables,
+                   const int * blocks_strides,
                    const int * blocks_offsets,
                    const int * blocks_n_elem_nest_sum,
                    int n_block,
                    int n_elem,
                    int rank,
-                   const int * dest_index_table,
-                   T * dest_data);
+                   const int *dest_index_table,
+                   T *dest_data);
 
-    template<typename T>
+    template<typename T, bool reverse>
     thrust::device_vector<T>
     reshape(const thrust::device_vector<T> & src_data,
             const arma::umat & blocks_dimensions,
@@ -95,10 +95,10 @@ namespace block_sparse {
 
         DEBUG(3)
 
-        reshape_kernel<T><<<blockSize, gridSize>>>(
+        reshape_kernel<T, reverse><<<blockSize, gridSize>>>(
                 thrust::raw_pointer_cast(src_data.data()),
-                dev_block_index_tables,
-                dev_blocks_strides,
+                thrust::raw_pointer_cast(dev_block_index_tables.data()),
+                thrust::raw_pointer_cast(dev_blocks_strides.data()),
                 thrust::raw_pointer_cast(blocks_offsets_in_thrust.data()),
                 thrust::raw_pointer_cast(n_elem_nest_sum_in_thrust.data()),
                 (int) n_blocks,
@@ -111,77 +111,6 @@ namespace block_sparse {
         return dest_data;
     }
 
-    template<typename T>
-    thrust::device_vector<T>
-    flatten(const thrust::device_vector<T> & src_data,
-            const arma::umat & blocks_dimensions,
-            const arma::umat & blocks_strides,
-            const arma::uvec & blocks_offsets,
-            const arma::uvec & dest_dimensions) {
-
-        const arma::uword n_blocks = blocks_dimensions.n_cols;
-        const arma::uword rank = blocks_dimensions.n_rows;
-
-        int ** dev_block_index_tables;
-        int ** dev_blocks_strides;
-        cudaMalloc(&dev_block_index_tables, n_blocks);
-        cudaMalloc(&dev_blocks_strides, n_blocks);
-
-        std::vector<thrust::device_vector<int>> block_index_tables_in_thrust;
-        std::vector<thrust::device_vector<int>> blocks_strides_in_thrust;
-
-        for(int i=0; i<n_blocks; i++) {
-            const arma::Col<int> block_table =
-                    arma::conv_to<arma::Col<int>>::from(
-                            torque::util::generate_index_table(blocks_dimensions.col(i)));
-
-            block_index_tables_in_thrust.push_back(util::arma_to_thrust_device<int>(block_table));
-
-            dev_block_index_tables[i] = thrust::raw_pointer_cast(block_index_tables_in_thrust[i].data());
-
-            const arma::Col<int> block_strides =
-                    arma::conv_to<arma::Col<int>>::from(blocks_strides.col(i));
-
-            blocks_strides_in_thrust.push_back(util::arma_to_thrust_device<int>(block_strides));
-
-            dev_blocks_strides[i] = thrust::raw_pointer_cast(blocks_strides_in_thrust[i].data());
-        }
-
-        const auto blocks_offsets_in_thrust =
-                util::arma_to_thrust_device<int>(blocks_offsets);
-
-        const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions, arma::uvec{n_blocks});
-
-        const arma::uvec dest_index_table = torque::util::generate_index_table(padded_dest_dimensions);
-        const thrust::device_vector<int> dest_index_table_in_thrust = util::arma_to_thrust_device<int>(dest_index_table);
-
-        thrust::device_vector<T> dest_data(arma::prod(padded_dest_dimensions));
-
-        const arma::uvec n_elem_nest_sum = arma::cumsum(arma::prod(blocks_dimensions));
-        const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
-
-        const thrust::device_vector<int> n_elem_nest_sum_in_thrust = util::arma_to_thrust_device<int>(n_elem_nest_sum);
-
-        dim3 blockSize(256);
-        dim3 gridSize(n_elem / 256 + 1);
-
-        flatten<T><<<blockSize, gridSize>>>(
-                thrust::raw_pointer_cast(src_data.data()),
-                dev_block_index_tables,
-                dev_blocks_strides,
-                thrust::raw_pointer_cast(blocks_offsets_in_thrust.data()),
-                thrust::raw_pointer_cast(n_elem_nest_sum_in_thrust.data()),
-                n_blocks,
-                n_elem,
-                rank,
-                thrust::raw_pointer_cast(dest_data.data())
-        );
-
-        cudaFree(dev_block_index_tables);
-        cudaFree(dev_blocks_strides);
-
-        return dest_data;
-    }
 }
 
 /// a tensor object that stores blocks of sub-tensors. The blocks may have intersections.
@@ -513,9 +442,10 @@ namespace block_sparse {
             const arma::umat new_begin_points = this->begin_points.rows(permutation);
             const arma::umat new_end_points = this->end_points.rows(permutation);
 
-            thrust::device_vector<T> workspace = block_sparse::reshape(this->data, this->blocks_dimension,
-                                                                       this->index_tables, this->block_offsets,
-                                                                       max_dimension);
+            thrust::device_vector<T> workspace = block_sparse::reshape<T, false>(
+                    this->data, this->blocks_dimension,
+                    this->index_tables, this->block_offsets,
+                    max_dimension);
 
             std::vector<int> dim_in_cutt = std::vector<int>(this->rank + 1);
             std::vector<int> permutation_in_cutt = std::vector<int>(this->rank+ 1);
@@ -555,7 +485,7 @@ namespace block_sparse {
             }
 
             thrust::device_vector<T> flattened =
-                    block_sparse::reshape(new_data,
+                    block_sparse::reshape<T, true>(new_data,
                                           new_blocks_dimension,
                                           new_index_tables,
                                           this->block_offsets,
