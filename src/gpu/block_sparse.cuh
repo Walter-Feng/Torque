@@ -485,6 +485,9 @@ namespace block_sparse {
                                           this->block_offsets,
                                           max_dimension(permutation));
 
+            for(int i=0; i<flattened.size(); i++) {
+                std::cout << flattened[i] << std::endl;
+            }
             return BlockSparseTensor<T>(std::move(flattened), new_begin_points, new_end_points, new_dimension);
         }
 
