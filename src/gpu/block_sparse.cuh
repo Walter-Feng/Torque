@@ -441,6 +441,11 @@ namespace block_sparse {
                     this->index_tables, this->block_offsets,
                     max_dimension);
 
+            std::cout << "workspace " << std::endl;
+            for(int i=0; i<workspace.size(); i++) {
+                std::cout << workspace[i] << std::endl;
+            }
+
             std::vector<int> dim_in_cutt = std::vector<int>(this->rank + 1);
             std::vector<int> permutation_in_cutt = std::vector<int>(this->rank+ 1);
 
@@ -485,6 +490,7 @@ namespace block_sparse {
                                           this->block_offsets,
                                           max_dimension(permutation));
 
+            std::cout << "flattened " << std::endl;
             for(int i=0; i<flattened.size(); i++) {
                 std::cout << flattened[i] << std::endl;
             }
