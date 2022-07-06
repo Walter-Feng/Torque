@@ -51,8 +51,6 @@ namespace block_sparse {
         thrust::device_vector<int> dev_block_index_tables(n_blocks * rank);
         thrust::device_vector<int> dev_blocks_strides(n_blocks * rank);
 
-        DEBUG(1)
-
         for(int i=0; i<n_blocks; i++) {
             const auto table_slice =
                     util::arma_to_thrust_device<int>(
@@ -62,8 +60,6 @@ namespace block_sparse {
             thrust::copy(table_slice.begin(), table_slice.end(),
                          dev_block_index_tables.begin() + i * rank);
 
-
-            DEBUG(8)
             const auto block_strides_slice =
                     util::arma_to_thrust_device<int>(
                             arma::conv_to<arma::Col<int>>::from(
@@ -71,10 +67,8 @@ namespace block_sparse {
 
             thrust::copy(block_strides_slice.begin(), block_strides_slice.end(),
                          dev_blocks_strides.begin() + i * rank);
-            DEBUG(9)
         }
 
-        DEBUG(2)
         const auto blocks_offsets_in_thrust =
                 util::arma_to_thrust_device<int>(blocks_offsets);
 
@@ -92,8 +86,6 @@ namespace block_sparse {
 
         dim3 blockSize(256);
         dim3 gridSize(n_elem / 256 + 1);
-
-        DEBUG(3)
 
         reshape_kernel<T, reverse><<<blockSize, gridSize>>>(
                 thrust::raw_pointer_cast(src_data.data()),

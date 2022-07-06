@@ -28,7 +28,6 @@ namespace block_sparse {
             int tmp;
             int tensor_residue;
 
-            DEBUG(3)
             for (int j = 0; j < n_block; j++) {
                 if (i >= blocks_n_elem_nest_sum[j]) {
                     block_index += 1;
@@ -37,7 +36,6 @@ namespace block_sparse {
                 }
             }
 
-            DEBUG(4)
             tensor_residue = i - blocks_n_elem_nest_sum[block_index];
 
             for (int j = 0; j < rank; j++) {
@@ -51,7 +49,6 @@ namespace block_sparse {
 
             }
 
-            DEBUG(5)
             tensor_index += blocks_offsets[block_index];
             dest_index += block_index * dest_index_table[rank];
 
@@ -60,7 +57,6 @@ namespace block_sparse {
             } else {
                 dest_data[dest_index] = src_data[tensor_index];
             }
-            DEBUG(6)
         }
 
     }
