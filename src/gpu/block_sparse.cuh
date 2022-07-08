@@ -610,7 +610,9 @@ namespace block_sparse {
                 DEBUG(5)
 
                 std::cout << "A_copies: " << std::endl;
-                std::cout << A_copies;
+                for(int j=0; j<A_copies.size(); j++) {
+                    std::cout << A_copies[j] << " ";
+                }
                 std::cout << std::endl;
 
                 const T * A_ptr =
@@ -619,7 +621,9 @@ namespace block_sparse {
                         thrust::raw_pointer_cast(A_copies.data());
 
                 std::cout << "B_copies: " << std::endl;
-                std::cout << B_copies;
+                for(int j=0; j<B_copies.size(); j++) {
+                    std::cout << B_copies[j] << " ";
+                }
                 std::cout << std::endl;
 
                 const T * B_ptr =
