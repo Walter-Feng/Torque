@@ -468,7 +468,7 @@ namespace block_sparse {
                                                              tensor.begin_points,
                                                              tensor.end_points);
 
-                if(contracting_info.block_indices.empty()) {
+                if(contracting_info.block_indices.n_elem == 0) {
                     continue;
                 }
 
@@ -533,7 +533,7 @@ namespace block_sparse {
                         A_subblock_dimension,
                         arma::repmat(this->index_tables.col(i), 1, n_subblocks),
                         A_subblock_offsets,
-                        padded_A_block_max_dimension
+                        A_block_max_dimension
                         );
 
                 thrust::device_vector<T> B_copies = block_sparse::reshape<T, false>(
@@ -541,7 +541,7 @@ namespace block_sparse {
                         B_subblock_dimension,
                         tensor.index_tables.cols(B_block_indices),
                         B_subblock_offsets,
-                        padded_B_block_max_dimension
+                        B_block_max_dimension
                 );
 
                 const int A_cutt_rank = A_non_trivial_dimension.n_elem;

@@ -436,6 +436,10 @@ public:
             const auto contracting_info = block_sparse::block_in_range(contracting_indices, A_begin_point, A_end_point,
                                                                        tensor.begin_points, tensor.end_points);
 
+            if(contracting_info.block_indices.n_elem == 0) {
+                continue;
+            }
+
             const arma::umat A_subblock_begin_points = contracting_info.A_begin_points;
             const arma::umat A_subblock_end_points = contracting_info.A_end_points;
             const arma::umat A_subblock_dimension =
