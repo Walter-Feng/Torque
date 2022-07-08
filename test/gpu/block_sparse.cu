@@ -96,20 +96,20 @@ TEST_CASE("block sparse tensor operation") {
         CHECK(tensor.query({}) == 1);
 
     }
-//
-//    SECTION("vector contraction") {
-//        const std::vector<float> vec1{0,1};
-//        const std::vector<float> vec2{2,3,4};
-//
-//        torque::gpu::BlockSparseTensor<float> tensor_format({5});
-//        tensor_format.append_block(vec1.data(), {0}, {1}, {1});
-//        tensor_format.append_block(vec2.data(), {2}, {4}, {1});
-//
-//        const auto result =
-//                tensor_format.contract(tensor_format, arma::umat({{0, 0}}));
-//
-//        CHECK(result.to_number() == 30);
-//    }
+
+    SECTION("vector contraction") {
+        const std::vector<float> vec1{0,1};
+        const std::vector<float> vec2{2,3,4};
+
+        torque::gpu::BlockSparseTensor<float> tensor_format({5});
+        tensor_format.append_block(vec1.data(), {0}, {1}, {1});
+        tensor_format.append_block(vec2.data(), {2}, {4}, {1});
+
+        const auto result =
+                tensor_format.contract(tensor_format, arma::umat({{0, 0}}));
+
+        CHECK(result.to_number() == 30);
+    }
 //
 //    SECTION("matrix multiplication") {
 //        const std::vector<float> vec{0, 1, 0, 0, 2, 3, 0, 0, 0, 0, 4, 5, 0, 0, 6, 7};
