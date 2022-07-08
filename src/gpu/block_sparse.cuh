@@ -491,6 +491,8 @@ namespace block_sparse {
                 const arma::umat B_subblock_end_points = contracting_info.B_end_points;
                 const arma::umat B_subblock_dimension =
                         B_subblock_end_points - B_subblock_begin_points + arma::ones<arma::umat>(arma::size(B_subblock_begin_points));
+                B_subblock_begin_points.print("B_subblock_begin_points");
+                B_subblock_end_points.print("B_subblock_end_points");
 
                 const arma::uvec B_subblock_offsets =
                         arma::sum(B_subblock_begin_points % tensor.index_tables.cols(B_block_indices)).t()
@@ -520,10 +522,10 @@ namespace block_sparse {
 
                 A_subblock_dimension.print("A_subblock_dimension");
                 A_subblock_offsets.print("A_subblock_offsets");
-                padded_A_block_max_dimension.print("A_subblock_offsets");
+                padded_A_block_max_dimension.print("padded_A_block_max_dimension");
                 B_subblock_dimension.print("B_subblock_dimension");
                 B_subblock_offsets.print("B_subblock_offsets");
-                padded_B_block_max_dimension.print("B_subblock_offsets");
+                padded_B_block_max_dimension.print("padded_A_block_max_dimension");
 
                 thrust::device_vector<T> A_copies = block_sparse::reshape<T, false>(
                         this->data,
