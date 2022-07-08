@@ -542,15 +542,15 @@ namespace block_sparse {
                 const auto permutation_generator =
                         [](const arma::uvec & contracting_indices, const arma::uword target_rank) -> arma::uvec {
 
-                            arma::uvec transposition(target_rank + 1);
+                            arma::uvec transposition(target_rank);
 
-                            for(int j=0; j<=target_rank; j++) {
+                            for(int j=0; j<target_rank; j++) {
                                 transposition(j) = j;
                             }
 
                             transposition.shed_rows(contracting_indices);
 
-                            return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{target_rank});
+                            return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{target_rank + 1});
                         };
 
                 DEBUG(3)
