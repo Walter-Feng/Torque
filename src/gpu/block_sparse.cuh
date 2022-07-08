@@ -455,6 +455,7 @@ namespace block_sparse {
 
             auto result = BlockSparseTensor<T>(new_dimension);
 
+            DEBUG(0)
             for(arma::uword i=0; i<this->block_n_elem.n_elem; i++) {
 
                 const arma::uvec A_begin_point = this->begin_points.col(i);
@@ -509,6 +510,8 @@ namespace block_sparse {
                 A_block_max_dimension_copy.shed_rows(this_contracting_indices);
                 B_block_max_dimension_copy.shed_rows(that_contracting_indices);
 
+                DEBUG(1)
+
                 const arma::uvec dimension_after_multiplication =
                         arma::join_vert(A_block_max_dimension_copy, B_block_max_dimension_copy);
 
@@ -527,6 +530,8 @@ namespace block_sparse {
                         B_subblock_offsets,
                         padded_B_block_max_dimension
                 );
+
+                DEBUG(2)
 
                 const int A_cutt_rank = A_non_trivial_dimension.n_elem;
                 const int B_cutt_rank = B_non_trivial_dimension.n_elem;
@@ -549,6 +554,7 @@ namespace block_sparse {
                             return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{n_blocks});
                         };
 
+                DEBUG(3)
                 const arma::uvec A_permutation =
                         permutation_generator(this_contracting_indices, this->rank, n_subblocks)
                             (A_non_trivial_dimension);
@@ -568,6 +574,8 @@ namespace block_sparse {
                     B_dim_in_cutt[j] = B_non_trivial_dimension(j);
                     B_permutation_in_cutt[j] = B_permutation(j);
                 }
+
+                DEBUG(4)
 
                 std::optional<thrust::device_vector<T>> A_transposed = std::nullopt;
                 std::optional<thrust::device_vector<T>> B_transposed = std::nullopt;
@@ -604,6 +612,8 @@ namespace block_sparse {
                     B_copies.shrink_to_fit();
                 }
 
+                DEBUG(5)
+
                 const T * A_ptr =
                         A_transposed.has_value() ?
                         thrust::raw_pointer_cast(A_transposed.value().data()) :
@@ -616,6 +626,8 @@ namespace block_sparse {
 
                 cublasHandle_t handle;
                 cublasCreate(&handle);
+
+                DEBUG(6)
 
                 if(result_rank > 0) {
 
