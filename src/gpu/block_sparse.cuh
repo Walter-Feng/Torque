@@ -562,7 +562,7 @@ namespace block_sparse {
                         permutation_generator(that_contracting_indices, tensor.rank, n_subblocks)
                             (B_non_trivial_dimension);
 
-                for(arma::uword i=0; i<A_cutt_rank; i++) {
+                for(arma::uword j=0; j<A_cutt_rank; j++) {
                     A_dim_in_cutt[i] = padded_A_block_max_dimension(A_non_trivial_dimension(i));
                     A_permutation_in_cutt[i] = A_permutation(i);
                 }
@@ -571,7 +571,7 @@ namespace block_sparse {
                 std::vector<int> B_permutation_in_cutt = std::vector<int>(B_cutt_rank);
 
                 for(arma::uword j=0; j<B_cutt_rank; j++) {
-                    B_dim_in_cutt[j] = B_non_trivial_dimension(j);
+                    B_dim_in_cutt[j] = padded_B_block_max_dimension(B_non_trivial_dimension(j));
                     B_permutation_in_cutt[j] = B_permutation(j);
                 }
 
