@@ -550,7 +550,7 @@ namespace block_sparse {
 
                             transposition.shed_rows(contracting_indices);
 
-                            return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{target_rank + 1});
+                            return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{target_rank});
                         };
 
                 DEBUG(3)
@@ -572,6 +572,11 @@ namespace block_sparse {
 
                 std::vector<int> B_dim_in_cutt = std::vector<int>(B_cutt_rank);
                 std::vector<int> B_permutation_in_cutt = std::vector<int>(B_cutt_rank);
+
+
+                B_permutation_generated.print("B_permutation_generated");
+                B_non_trivial_dimension.print("B_non_trivial_dimension");
+                padded_B_block_max_dimension.print("padded_B_block_max_dimension");
 
                 for(arma::uword j=0; j<B_cutt_rank; j++) {
                     B_dim_in_cutt[j] = padded_B_block_max_dimension(B_non_trivial_dimension(j));
