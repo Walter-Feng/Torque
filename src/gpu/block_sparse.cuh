@@ -472,21 +472,22 @@ namespace block_sparse {
                     continue;
                 }
 
-                const arma::umat A_subblock_begin_points = contracting_info.A_begin_points;
+                const arma::umat A_subblock_rel_begin_points = contracting_info.A_begin_points -
+                        arma::repmat(this->begin_points.col(i), 1, contracting_info.block_indices.n_elem);
 
                 const arma::uvec A_subblock_offsets =
-                        A_subblock_begin_points.t() * this->index_tables.col(i) + this->block_offsets(i);
+                        A_subblock_rel_begin_points.t() * this->index_tables.col(i) + this->block_offsets(i);
 
                 const arma::umat A_subblock_end_points = contracting_info.A_end_points;
 
                 const arma::umat A_subblock_dimension =
                         A_subblock_end_points
-                        - A_subblock_begin_points
-                        + arma::ones<arma::umat>(arma::size(A_subblock_begin_points));
+                        - contracting_info.A_begin_points
+                        + arma::ones<arma::umat>(arma::size(contracting_info.A_begin_points));
 
                 const arma::uvec B_block_indices = contracting_info.block_indices;
                 const arma::uword n_subblocks = B_block_indices.n_elem;
-                const arma::umat B_subblock_begin_points = contracting_info.B_begin_points;
+                const arma::umat B_subblock_begin_points = contracting_info.B_begin_points - tensor.begin_points.cols(B_block_indices);
                 const arma::umat B_subblock_end_points = contracting_info.B_end_points;
                 const arma::umat B_subblock_dimension =
                         B_subblock_end_points - B_subblock_begin_points + arma::ones<arma::umat>(arma::size(B_subblock_begin_points));
