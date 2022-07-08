@@ -74,6 +74,7 @@ namespace block_sparse {
         const arma::uvec n_elem_nest_sum = arma::cumsum(arma::prod(blocks_dimensions).t());
         const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
 
+        std::cout << "n_elem " << n_elem << std::endl;
         const thrust::device_vector<int> n_elem_nest_sum_in_thrust = util::arma_to_thrust_device<int>(n_elem_nest_sum);
 
         dim3 blockSize(256);
