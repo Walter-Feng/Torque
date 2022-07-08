@@ -543,7 +543,7 @@ namespace block_sparse {
                         [](const arma::uvec & contracting_indices, const arma::uword target_rank,
                            const arma::uword n_blocks) -> arma::uvec {
 
-                            arma::uvec transposition(target_rank);
+                            arma::uvec transposition(target_rank + 1);
 
                             for(int j=0; j<=target_rank; j++) {
                                 transposition(j) = j;
