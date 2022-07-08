@@ -461,12 +461,16 @@ namespace block_sparse {
                 const arma::uvec A_begin_point_in_contracting_dimension = A_begin_point.rows(this_contracting_indices);
                 const arma::uvec A_end_point = this->end_points.col(i);
 
-                const auto contracting_info =
+                const torque::block_sparse::ContractionInfo contracting_info =
                         torque::block_sparse::block_in_range(contracting_indices,
                                                              A_begin_point,
                                                              A_end_point,
                                                              tensor.begin_points,
                                                              tensor.end_points);
+
+                if(contracting_info.block_indices.empty()) {
+                    continue;
+                }
 
                 const arma::umat A_subblock_begin_points = contracting_info.A_begin_points;
 
@@ -512,6 +516,10 @@ namespace block_sparse {
 
                 const arma::uvec dimension_after_multiplication =
                         arma::join_vert(A_block_max_dimension_copy, B_block_max_dimension_copy);
+
+                A_subblock_dimension.print("A_subblock_dimension");
+                A_subblock_offsets.print("A_subblock_offsets");
+                B_subblock_offsets.print("B__subblock_offsets");
 
                 thrust::device_vector<T> A_copies = block_sparse::reshape<T, false>(
                         this->data,
