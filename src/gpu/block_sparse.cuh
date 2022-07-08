@@ -520,7 +520,10 @@ namespace block_sparse {
 
                 A_subblock_dimension.print("A_subblock_dimension");
                 A_subblock_offsets.print("A_subblock_offsets");
-                B_subblock_offsets.print("B__subblock_offsets");
+                padded_A_block_max_dimension.print("A_subblock_offsets");
+                B_subblock_dimension.print("B_subblock_dimension");
+                B_subblock_offsets.print("B_subblock_offsets");
+                padded_B_block_max_dimension.print("B_subblock_offsets");
 
                 thrust::device_vector<T> A_copies = block_sparse::reshape<T, false>(
                         this->data,
