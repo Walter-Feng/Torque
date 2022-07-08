@@ -487,15 +487,16 @@ namespace block_sparse {
 
                 const arma::uvec B_block_indices = contracting_info.block_indices;
                 const arma::uword n_subblocks = B_block_indices.n_elem;
-                const arma::umat B_subblock_begin_points = contracting_info.B_begin_points - tensor.begin_points.cols(B_block_indices);
+                const arma::umat B_subblock_rel_begin_points =
+                        contracting_info.B_begin_points - tensor.begin_points.cols(B_block_indices);
                 const arma::umat B_subblock_end_points = contracting_info.B_end_points;
                 const arma::umat B_subblock_dimension =
-                        B_subblock_end_points - B_subblock_begin_points + arma::ones<arma::umat>(arma::size(B_subblock_begin_points));
-                B_subblock_begin_points.print("B_subblock_begin_points");
-                B_subblock_end_points.print("B_subblock_end_points");
+                        B_subblock_end_points
+                        - contracting_info.B_begin_points
+                        + arma::ones<arma::umat>(arma::size(contracting_info.B_begin_points));
 
                 const arma::uvec B_subblock_offsets =
-                        arma::sum(B_subblock_begin_points % tensor.index_tables.cols(B_block_indices)).t()
+                        arma::sum(contracting_info.B_begin_points % tensor.index_tables.cols(B_block_indices)).t()
                         + tensor.block_offsets.rows(B_block_indices);
 
                 const arma::uvec A_block_max_dimension = arma::max(A_subblock_dimension, 1);
