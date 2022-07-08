@@ -555,6 +555,12 @@ namespace block_sparse {
                         };
 
                 DEBUG(3)
+
+                const arma::uvec A_permutation_generated = permutation_generator(this_contracting_indices, this->rank, n_subblocks);
+
+                A_permutation_generated.print("A_permutation_generated");
+                A_non_trivial_dimension.print("A_non_trivial_dimension");
+                padded_A_block_max_dimension.print("padded_A_block_max_dimension");
                 const arma::uvec A_permutation =
                         permutation_generator(this_contracting_indices, this->rank, n_subblocks)
                             (A_non_trivial_dimension);
