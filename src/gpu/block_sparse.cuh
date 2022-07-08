@@ -455,7 +455,6 @@ namespace block_sparse {
 
             auto result = BlockSparseTensor<T>(new_dimension);
 
-            DEBUG(0)
             for(arma::uword i=0; i<this->block_n_elem.n_elem; i++) {
 
                 const arma::uvec A_begin_point = this->begin_points.col(i);
@@ -510,7 +509,6 @@ namespace block_sparse {
                 A_block_max_dimension_copy.shed_rows(this_contracting_indices);
                 B_block_max_dimension_copy.shed_rows(that_contracting_indices);
 
-                DEBUG(1)
 
                 const arma::uvec dimension_after_multiplication =
                         arma::join_vert(A_block_max_dimension_copy, B_block_max_dimension_copy);
@@ -530,8 +528,6 @@ namespace block_sparse {
                         B_subblock_offsets,
                         padded_B_block_max_dimension
                 );
-
-                DEBUG(2)
 
                 const int A_cutt_rank = A_non_trivial_dimension.n_elem;
                 const int B_cutt_rank = B_non_trivial_dimension.n_elem;
@@ -553,13 +549,9 @@ namespace block_sparse {
                             return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{target_rank});
                         };
 
-                DEBUG(3)
-
                 const arma::uvec A_permutation_generated = permutation_generator(this_contracting_indices, this->rank);
                 const arma::uvec B_permutation_generated = permutation_generator(that_contracting_indices, tensor.rank);
-                A_permutation_generated.print("A_permutation_generated");
-                A_non_trivial_dimension.print("A_non_trivial_dimension");
-                padded_A_block_max_dimension.print("padded_A_block_max_dimension");
+
                 const arma::uvec A_permutation =
                         permutation_generator(this_contracting_indices, this->rank)(A_non_trivial_dimension);
                 const arma::uvec B_permutation =
@@ -572,11 +564,6 @@ namespace block_sparse {
 
                 std::vector<int> B_dim_in_cutt = std::vector<int>(B_cutt_rank);
                 std::vector<int> B_permutation_in_cutt = std::vector<int>(B_cutt_rank);
-
-
-                B_permutation_generated.print("B_permutation_generated");
-                B_non_trivial_dimension.print("B_non_trivial_dimension");
-                padded_B_block_max_dimension.print("padded_B_block_max_dimension");
 
                 for(arma::uword j=0; j<B_cutt_rank; j++) {
                     B_dim_in_cutt[j] = padded_B_block_max_dimension(B_non_trivial_dimension(j));
@@ -622,10 +609,18 @@ namespace block_sparse {
 
                 DEBUG(5)
 
+                std::cout << "A_copies: " << std::endl;
+                std::cout << A_copies;
+                std::cout << std::endl;
+
                 const T * A_ptr =
                         A_transposed.has_value() ?
                         thrust::raw_pointer_cast(A_transposed.value().data()) :
                         thrust::raw_pointer_cast(A_copies.data());
+
+                std::cout << "B_copies: " << std::endl;
+                std::cout << B_copies;
+                std::cout << std::endl;
 
                 const T * B_ptr =
                         B_transposed.has_value() ?
