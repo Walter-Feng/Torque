@@ -540,8 +540,7 @@ namespace block_sparse {
                 std::vector<int> A_permutation_in_cutt = std::vector<int>(A_cutt_rank);
 
                 const auto permutation_generator =
-                        [](const arma::uvec & contracting_indices, const arma::uword target_rank,
-                           const arma::uword n_blocks) -> arma::uvec {
+                        [](const arma::uvec & contracting_indices, const arma::uword target_rank) -> arma::uvec {
 
                             arma::uvec transposition(target_rank + 1);
 
@@ -551,22 +550,20 @@ namespace block_sparse {
 
                             transposition.shed_rows(contracting_indices);
 
-                            return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{n_blocks});
+                            return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{target_rank});
                         };
 
                 DEBUG(3)
 
-                const arma::uvec A_permutation_generated = permutation_generator(this_contracting_indices, this->rank, n_subblocks);
+                const arma::uvec A_permutation_generated = permutation_generator(this_contracting_indices, this->rank);
 
                 A_permutation_generated.print("A_permutation_generated");
                 A_non_trivial_dimension.print("A_non_trivial_dimension");
                 padded_A_block_max_dimension.print("padded_A_block_max_dimension");
                 const arma::uvec A_permutation =
-                        permutation_generator(this_contracting_indices, this->rank, n_subblocks)
-                            (A_non_trivial_dimension);
+                        permutation_generator(this_contracting_indices, this->rank)(A_non_trivial_dimension);
                 const arma::uvec B_permutation =
-                        permutation_generator(that_contracting_indices, tensor.rank, n_subblocks)
-                            (B_non_trivial_dimension);
+                        permutation_generator(that_contracting_indices, tensor.rank)(B_non_trivial_dimension);
 
                 for(arma::uword j=0; j<A_cutt_rank; j++) {
                     A_dim_in_cutt[i] = padded_A_block_max_dimension(A_non_trivial_dimension(i));
