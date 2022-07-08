@@ -496,7 +496,7 @@ namespace block_sparse {
                         + arma::ones<arma::umat>(arma::size(contracting_info.B_begin_points));
 
                 const arma::uvec B_subblock_offsets =
-                        arma::sum(contracting_info.B_begin_points % tensor.index_tables.cols(B_block_indices)).t()
+                        arma::sum(B_subblock_rel_begin_points % tensor.index_tables.cols(B_block_indices)).t()
                         + tensor.block_offsets.rows(B_block_indices);
 
                 const arma::uvec A_block_max_dimension = arma::max(A_subblock_dimension, 1);
