@@ -32,6 +32,7 @@ namespace block_sparse {
                    const int * block_index_tables,
                    const int * blocks_strides,
                    const int * blocks_offsets,
+                   const int * n_elem_nest_sum,
                    int n_block,
                    int n_elem,
                    int rank,
@@ -71,10 +72,9 @@ namespace block_sparse {
 
         thrust::device_vector<T> dest_data(arma::prod(padded_dest_dimensions));
 
-        const arma::uvec n_elem_nest_sum = arma::cumsum(arma::prod(blocks_dimensions).t());
+        const arma::uvec n_elem_nest_sum = arma::cumsum(arma::prod(blocks_dimensions).t()) - arma::prod(blocks_dimensions).t();
         const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
 
-        std::cout << "n_elem " << n_elem << std::endl;
         const thrust::device_vector<int> n_elem_nest_sum_in_thrust = util::arma_to_thrust_device<int>(n_elem_nest_sum);
 
         dim3 blockSize(256);
@@ -85,12 +85,14 @@ namespace block_sparse {
                 thrust::raw_pointer_cast(dev_block_index_tables.data()),
                 thrust::raw_pointer_cast(dev_blocks_strides.data()),
                 thrust::raw_pointer_cast(blocks_offsets_in_thrust.data()),
+                thrust::raw_pointer_cast(n_elem_nest_sum_in_thrust.data()),
                 (int) n_blocks,
                 (int) n_elem,
                 (int) rank,
                 thrust::raw_pointer_cast(dest_index_table_in_thrust.data()),
                 thrust::raw_pointer_cast(dest_data.data())
         );
+
 
         return dest_data;
     }
@@ -625,22 +627,10 @@ namespace block_sparse {
 
                 DEBUG(5)
 
-                std::cout << "A_copies: " << std::endl;
-                for(int j=0; j<A_copies.size(); j++) {
-                    std::cout << A_copies[j] << " ";
-                }
-                std::cout << std::endl;
-
                 const T * A_ptr =
                         A_transposed.has_value() ?
                         thrust::raw_pointer_cast(A_transposed.value().data()) :
                         thrust::raw_pointer_cast(A_copies.data());
-
-                std::cout << "B_copies: " << std::endl;
-                for(int j=0; j<B_copies.size(); j++) {
-                    std::cout << B_copies[j] << " ";
-                }
-                std::cout << std::endl;
 
                 const T * B_ptr =
                         B_transposed.has_value() ?
@@ -703,12 +693,22 @@ namespace block_sparse {
                                 torque::util::generate_index_table(new_subblock_dimensions.col(j));
                     }
 
+                    DEBUG(7)
+
                     arma::umat subblock_offsets =
                             arma::cumsum(arma::prod(new_subblock_dimensions)) - arma::prod(new_subblock_dimensions);
 
-                    thrust::device_vector<T> flattened(arma::accu(arma::prod(new_subblock_dimensions)));
+                    DEBUG(8)
+                    const arma::uword flattened_length = arma::accu(arma::prod(new_subblock_dimensions));
+
+                    thrust::device_vector<T> flattened = thrust::device_vector<T>(flattened_length);
+
+                    DEBUG(8)
 
                     assert(arma::all(dimension_after_multiplication == arma::max(new_subblock_dimensions, 1).t()));
+
+
+
 
                     block_sparse::reshape<T, true>(out, new_subblock_dimensions,
                                                    new_subblock_index_tables,
