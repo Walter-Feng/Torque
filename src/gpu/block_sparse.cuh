@@ -701,21 +701,19 @@ namespace block_sparse {
                     DEBUG(8)
                     const arma::uword flattened_length = arma::accu(arma::prod(new_subblock_dimensions));
 
-                    thrust::device_vector<T> flattened = thrust::device_vector<T>(flattened_length);
 
-                    DEBUG(8)
 
                     assert(arma::all(dimension_after_multiplication == arma::max(new_subblock_dimensions, 1).t()));
 
-
-
-
-                    block_sparse::reshape<T, true>(out, new_subblock_dimensions,
+                    thrust::device_vector<T> flattened =
+                            block_sparse::reshape<T, true>(out, new_subblock_dimensions,
                                                    new_subblock_index_tables,
                                                    subblock_offsets,
                                                    dimension_after_multiplication);
 
-                    result.append_blocks(out,
+                    DEBUG(8)
+
+                    result.append_blocks(flattened,
                                          contracting_info.new_begin_points,
                                          contracting_info.new_end_points,
                                          new_subblock_index_tables);
