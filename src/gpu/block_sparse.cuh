@@ -40,8 +40,9 @@ namespace block_sparse {
                    T * dest_data);
 
     template<typename T, bool reverse>
-    thrust::device_vector<T>
-    reshape(const thrust::device_vector<T> & src_data,
+    void
+    reshape(T * dest_data,
+            const T * src_data,
             const arma::umat & blocks_dimensions,
             const arma::umat & blocks_strides,
             const arma::uvec & blocks_offsets,
@@ -56,45 +57,56 @@ namespace block_sparse {
             blocks_index_tables.col(i) = torque::util::generate_index_table(blocks_dimensions.col(i));
         }
 
-        thrust::device_vector<int> dev_block_index_tables =
-                util::arma_to_thrust_device<int>(arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_index_tables)));
 
-        const auto dev_blocks_strides =
-                util::arma_to_thrust_device<int>(arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_strides)));
+        int * dev_block_index_tables;
+        util::arma_to_gpu_and_allocate(dev_block_index_tables,
+                                       arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_index_tables)));
 
-        const auto blocks_offsets_in_thrust =
-                util::arma_to_thrust_device<int>(blocks_offsets);
+        int * dev_blocks_strides;
+        util::arma_to_gpu_and_allocate(dev_block_index_tables,
+                                       arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_strides)));
+
+        int * dev_block_offsets;
+        util::arma_to_gpu_and_allocate(dev_block_offsets,blocks_offsets);
 
         const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions, arma::uvec{n_blocks});
 
         const arma::uvec dest_index_table = torque::util::generate_index_table(padded_dest_dimensions);
-        const thrust::device_vector<int> dest_index_table_in_thrust = util::arma_to_thrust_device<int>(dest_index_table);
 
-        thrust::device_vector<T> dest_data(arma::prod(padded_dest_dimensions));
+        int * dev_dest_index_table;
+        util::arma_to_gpu_and_allocate(dev_dest_index_table,
+                                       arma::conv_to<arma::Col<int>>::from(arma::vectorise(blocks_strides)));
+
+        cudaMalloc(dest_data, arma::prod(padded_dest_dimensions) * sizeof(T));
 
         const arma::uvec n_elem_nest_sum = arma::cumsum(arma::prod(blocks_dimensions).t()) - arma::prod(blocks_dimensions).t();
         const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
 
-        const thrust::device_vector<int> n_elem_nest_sum_in_thrust = util::arma_to_thrust_device<int>(n_elem_nest_sum);
+        int * n_elem_nest_sum_dev;
+        util::arma_to_gpu_and_allocate(n_elem_nest_sum_dev, n_elem_nest_sum);
 
         dim3 blockSize(256);
         dim3 gridSize(n_elem / 256 + 1);
 
         reshape_kernel<T, reverse><<<blockSize, gridSize>>>(
-                thrust::raw_pointer_cast(src_data.data()),
-                thrust::raw_pointer_cast(dev_block_index_tables.data()),
-                thrust::raw_pointer_cast(dev_blocks_strides.data()),
-                thrust::raw_pointer_cast(blocks_offsets_in_thrust.data()),
-                thrust::raw_pointer_cast(n_elem_nest_sum_in_thrust.data()),
+                src_data,
+                dev_block_index_tables,
+                dev_blocks_strides,
+                dev_block_offsets,
+                n_elem_nest_sum_dev,
                 (int) n_blocks,
                 (int) n_elem,
                 (int) rank,
-                thrust::raw_pointer_cast(dest_index_table_in_thrust.data()),
-                thrust::raw_pointer_cast(dest_data.data())
+                dev_dest_index_table,
+                dest_data
         );
 
+        cudaFree(dev_block_index_tables);
+        cudaFree(dev_blocks_strides);
+        cudaFree(dev_block_offsets);
+        cudaFree(n_elem_nest_sum_dev);
+        cudaFree(dev_dest_index_table);
 
-        return dest_data;
     }
 
 }
@@ -141,7 +153,8 @@ namespace block_sparse {
         explicit BlockSparseTensor(const arma::uvec &dimension) {
             this->rank = dimension.n_elem;
             this->dimension = dimension;
-            this->data = thrust::device_vector<T>(1);
+            this->data;
+            cudaMalloc(&this->data, sizeof(T));
             this->data[0] = 0;
         }
 
@@ -170,52 +183,23 @@ namespace block_sparse {
                     this->index_tables.col(i) = torque::util::generate_index_table(this->blocks_dimension.col(i));
                 }
 
-                this->data = thrust::device_vector<T>(arma::sum(block_n_elem));
+                cudaMalloc(&this->data, arma::sum(block_n_elem) * sizeof(T));
 
                 if (source_data) {
-                    thrust::copy(source_data, source_data + arma::sum(block_n_elem), this->data.begin());
+                    thrust::copy(source_data, source_data + arma::sum(block_n_elem), this->data);
                 } else {
                     throw Error("Source data not allocated!");
                 }
             } else {
-                this->data = thrust::device_vector<T>(arma::sum(block_n_elem));
+                cudaMalloc(&this->data, arma::sum(block_n_elem) * sizeof(T));
 
                 if (source_data) {
-                    this->data[0] = source_data[0];
+                    thrust::copy(source_data, source_data + arma::sum(block_n_elem), this->data);
                 } else {
                     throw Error("Source data not allocated!");
                 }
             }
 
-        }
-
-        inline
-        explicit BlockSparseTensor(thrust::device_vector<T> &&source_data, const arma::umat &begin_points,
-                                   const arma::umat &end_points, const arma::uvec &dimension) {
-
-            if (source_data.empty()) {
-                throw Error("Source data not allocated!");
-            }
-
-            this->dimension = dimension;
-
-            rank = dimension.n_elem;
-
-            this->begin_points = begin_points;
-            this->end_points = end_points;
-
-            const auto n_blocks = begin_points.n_cols;
-            this->blocks_dimension = end_points - begin_points + arma::ones<arma::umat>(arma::size(begin_points));
-
-            this->block_n_elem = arma::prod(this->blocks_dimension).t();
-            this->block_offsets = torque::util::nest_sum(this->block_n_elem);
-
-            this->index_tables = arma::umat(arma::size(begin_points));
-            for (arma::uword i = 0; i < n_blocks; i++) {
-                this->index_tables.col(i) = torque::util::generate_index_table(this->blocks_dimension.col(i));
-            }
-
-            this->data = std::move(source_data);
         }
 
         inline
@@ -231,39 +215,18 @@ namespace block_sparse {
 
             const arma::uword n_data = arma::sum(arma::prod(this->blocks_dimension));
 
-            this->data = thrust::device_vector<T>(n_data);
+            cudaMalloc(this->data, n_data * sizeof(T));
 
             if (tensor.data) {
-                thrust::copy(tensor.data.begin(), tensor.data.end(), this->data.begin());
+                cudaMemcpy(this->data, tensor.data, n_data * sizeof(T), cudaMemcpyDeviceToDevice);
             } else {
                 throw Error("Source data not allocated!");
             }
         }
 
-        BlockSparseTensor(BlockSparseTensor &&tensor)  noexcept :
-        rank(std::move(tensor.rank)),
-        dimension(std::move(tensor.dimension)),
-        blocks_dimension(std::move(tensor.blocks_dimension)),
-        begin_points(std::move(tensor.begin_points)),
-        end_points(std::move(tensor.end_points)),
-        block_n_elem(std::move(tensor.block_n_elem)),
-        block_offsets(std::move(tensor.block_offsets)),
-        index_tables(std::move(tensor.index_tables)),
-        data(std::move(tensor.data)) {}
-
         inline
-        BlockSparseTensor& operator=(BlockSparseTensor<T>&& other)  noexcept {
-            rank = std::move(other.rank);
-            dimension = std::move(other.dimension),
-            blocks_dimension = std::move(other.blocks_dimension);
-            begin_points = std::move(other.begin_points);
-            end_points = std::move(other.end_points);
-            block_n_elem = std::move(other.block_n_elem);
-            block_offsets = std::move(other.block_offsets);
-            index_tables = std::move(other.index_tables);
-            data = std::move(other.data);
-
-            return *this;
+        ~BlockSparseTensor(){
+            cudaFree(this->data);
         }
 
         ///
@@ -288,7 +251,7 @@ namespace block_sparse {
         }
 
         inline
-        void append_block(const T *source_data,
+        void append_block(const T * const source_data,
                           const arma::uvec &begin_point,
                           const arma::uvec &end_point,
                           const arma::uvec &index_table) {
@@ -309,11 +272,11 @@ namespace block_sparse {
 
             this->data.resize(arma::sum(this->block_n_elem) * sizeof(T));
 
-            thrust::copy(source_data, source_data + n_elem, this->data.begin() + original_n_elem);
+            thrust::copy(source_data, source_data + n_elem, this->data + original_n_elem);
         }
 
         inline
-        void append_blocks(const thrust::device_vector<T> source_data,
+        void append_blocks(const T * const source_data,
                            const arma::umat &begin_point,
                            const arma::umat &end_point,
                            const arma::umat &index_table) {
@@ -332,9 +295,13 @@ namespace block_sparse {
             this->index_tables = arma::join_horiz(this->index_tables, index_table);
             this->block_offsets = arma::join_vert(this->block_offsets, arma::cumsum(n_elem) - n_elem);
 
-            this->data.resize(arma::sum(this->block_n_elem) * sizeof(T));
+            T * new_data;
+            cudaMalloc(&new_data, arma::sum(this->block_n_elem) * sizeof(T));
+            cudaMemcpy(new_data, this->data, original_n_elem * sizeof(T), cudaMemcpyDeviceToDevice);
+            cudaFree(this->data);
+            this->data = new_data;
 
-            thrust::copy(source_data.begin(), source_data.end(), this->data.begin() + original_n_elem);
+            thrust::copy(source_data, source_data + arma::sum(this->block_n_elem) - original_n_elem, this->data + original_n_elem);
         }
 
         /// Modify a number in the tensor
@@ -351,7 +318,7 @@ namespace block_sparse {
                 throw Error("Indices out of boundary");
             }
 
-            if (!this->data.empty()) {
+            if (this->data) {
                 const arma::uvec in_range =
                         torque::util::in_range(indices, this->begin_points, this->end_points);
 
@@ -399,7 +366,7 @@ namespace block_sparse {
                 throw Error("Indices out of boundary");
             }
 
-            if (!this->data.empty()) {
+            if (this->data) {
                 const arma::uvec in_range =
                         torque::util::in_range(indices, this->begin_points, this->end_points);
                 if (in_range.n_elem) {
@@ -531,7 +498,10 @@ namespace block_sparse {
                 B_subblock_offsets.print("B_subblock_offsets");
                 padded_B_block_max_dimension.print("padded_A_block_max_dimension");
 
-                thrust::device_vector<T> A_copies = block_sparse::reshape<T, false>(
+                T * A_copies;
+
+                block_sparse::reshape<T, false>(
+                        A_copies,
                         this->data,
                         A_subblock_dimension,
                         arma::repmat(this->index_tables.col(i), 1, n_subblocks),
@@ -539,7 +509,9 @@ namespace block_sparse {
                         A_block_max_dimension
                         );
 
-                thrust::device_vector<T> B_copies = block_sparse::reshape<T, false>(
+                T * B_copies;
+
+                B_copies = block_sparse::reshape<T, false>(
                         tensor.data,
                         B_subblock_dimension,
                         tensor.index_tables.cols(B_block_indices),
@@ -590,52 +562,50 @@ namespace block_sparse {
 
                 DEBUG(4)
 
-                std::optional<thrust::device_vector<T>> A_transposed = std::nullopt;
-                std::optional<thrust::device_vector<T>> B_transposed = std::nullopt;
+                std::optional<T *> A_transposed = std::nullopt;
+                std::optional<T *> B_transposed = std::nullopt;
 
                 cuttHandle planA, planB;
 
                 if(!A_permutation.is_sorted()) {
-                    A_transposed = {thrust::device_vector<T>(arma::prod(padded_A_block_max_dimension))};
+                    T * dev_pointer;
+                    cudaMalloc(& dev_pointer, arma::prod(padded_A_block_max_dimension));
+                    A_transposed = {dev_pointer};
                     cuttCheck(cuttPlan(&planA, A_cutt_rank,
                                        A_dim_in_cutt.data(),
                                        A_permutation_in_cutt.data(),
                                        sizeof(T), 0));
 
                     cuttCheck(cuttExecute(planA,
-                                          (void *) const_cast<T *>(thrust::raw_pointer_cast(A_copies.data())),
+                                          (void *) const_cast<T *>(A_copies),
                                           (void *) thrust::raw_pointer_cast(A_transposed.value().data())));
 
-                    A_copies.clear();
-                    A_copies.shrink_to_fit();
+                    cudaFree(A_copies);
                 }
 
                 if(!B_permutation.is_sorted()) {
-                    B_transposed = {thrust::device_vector<T>(arma::prod(padded_B_block_max_dimension))};
+                    T * dev_pointer;
+                    cudaMalloc(&dev_pointer, arma::prod(padded_A_block_max_dimension));
+                    B_transposed = {dev_pointer};
                     cuttCheck(cuttPlan(&planB, B_cutt_rank,
                                        B_dim_in_cutt.data(),
                                        B_permutation_in_cutt.data(),
                                        sizeof(T), 0));
 
                     cuttCheck(cuttExecute(planB,
-                                          (void *) const_cast<T *>(thrust::raw_pointer_cast(B_copies.data())),
-                                          (void *) thrust::raw_pointer_cast(B_transposed.value().data())));
+                                          (void *) const_cast<T *>(B_copies),
+                                          (void *) B_transposed.value().data()));
 
-                    B_copies.clear();
-                    B_copies.shrink_to_fit();
+                    cudaFree(B_copies);
                 }
 
                 DEBUG(5)
 
                 const T * A_ptr =
-                        A_transposed.has_value() ?
-                        thrust::raw_pointer_cast(A_transposed.value().data()) :
-                        thrust::raw_pointer_cast(A_copies.data());
+                        A_transposed.has_value() ? A_transposed.value() : A_copies;
 
                 const T * B_ptr =
-                        B_transposed.has_value() ?
-                        thrust::raw_pointer_cast(B_transposed.value().data()) :
-                        thrust::raw_pointer_cast(B_copies.data());
+                        B_transposed.has_value() ? B_transposed.value() : B_copies;
 
                 cublasHandle_t handle;
                 cublasCreate(&handle);
@@ -648,8 +618,8 @@ namespace block_sparse {
                     const arma::uword this_leading_dim = arma::prod(A_block_max_dimension) / contracting_n_elem;
                     const arma::uword that_leading_dim = arma::prod(B_block_max_dimension) / contracting_n_elem;
 
-                    thrust::device_vector<T> out(this_leading_dim * that_leading_dim * n_subblocks);
-                    T * out_pointer = thrust::raw_pointer_cast(out.data());
+                    T * out_pointer;
+                    cudaMalloc(&out_pointer, this_leading_dim * that_leading_dim * n_subblocks * sizeof(T));
 
                     const T * A_array[n_subblocks];
                     const T * B_array[n_subblocks];
@@ -701,21 +671,19 @@ namespace block_sparse {
                     DEBUG(8)
                     const arma::uword flattened_length = arma::accu(arma::prod(new_subblock_dimensions));
 
-                    thrust::device_vector<T> flattened = thrust::device_vector<T>(flattened_length);
+                    T * flattened;
 
                     DEBUG(8)
 
                     assert(arma::all(dimension_after_multiplication == arma::max(new_subblock_dimensions, 1).t()));
 
 
-
-
-                    block_sparse::reshape<T, true>(out, new_subblock_dimensions,
+                    block_sparse::reshape<T, true>(flattened, out_pointer, new_subblock_dimensions,
                                                    new_subblock_index_tables,
                                                    subblock_offsets,
                                                    dimension_after_multiplication);
 
-                    result.append_blocks(out,
+                    result.append_blocks(out_pointer,
                                          contracting_info.new_begin_points,
                                          contracting_info.new_end_points,
                                          new_subblock_index_tables);
@@ -771,8 +739,9 @@ namespace block_sparse {
             const arma::umat new_begin_points = this->begin_points.rows(permutation);
             const arma::umat new_end_points = this->end_points.rows(permutation);
 
-            thrust::device_vector<T> workspace = block_sparse::reshape<T, false>(
-                    this->data, this->blocks_dimension,
+            T * workspace;
+            block_sparse::reshape<T, false>(
+                    workspace, this->data, this->blocks_dimension,
                     this->index_tables, this->block_offsets,
                     max_dimension);
 
@@ -791,8 +760,7 @@ namespace block_sparse {
                 permutation_in_cutt[i] = padded_permutation(non_trivial_dimension(i));
             }
 
-            auto new_data = thrust::device_vector<T>(arma::prod(padded_max_dimension));
-
+            T * new_data;
 
             cuttHandle plan;
 
@@ -802,14 +770,10 @@ namespace block_sparse {
                                sizeof(T), 0));
 
             cuttCheck(cuttExecute(plan,
-                                  (void *) const_cast<T *>(thrust::raw_pointer_cast(workspace.data())),
-                                  (void *) thrust::raw_pointer_cast(new_data.data())));
+                                  (void *) const_cast<T *>(workspace),
+                                  (void *) new_data));
 
-            // empty the vector
-            workspace.clear();
-
-            // deallocate any capacity which may currently be associated with vec
-            workspace.shrink_to_fit();
+            cudaFree(workspace);
 
             cuttCheck(cuttDestroy(plan));
 
@@ -818,19 +782,22 @@ namespace block_sparse {
                 new_index_tables.col(i) = torque::util::generate_index_table(new_blocks_dimension.col(i));
             }
 
-            thrust::device_vector<T> flattened =
-                    block_sparse::reshape<T, true>(new_data,
-                                          new_blocks_dimension,
-                                          new_index_tables,
-                                          this->block_offsets,
-                                          max_dimension(permutation));
+            T * flattened;
 
+            block_sparse::reshape<T, true>(flattened,
+                                           new_data,
+                                  new_blocks_dimension,
+                                  new_index_tables,
+                                  this->block_offsets,
+                                  max_dimension(permutation));
+
+            cudaFree(new_data);
             return BlockSparseTensor<T>(std::move(flattened), new_begin_points, new_end_points, new_dimension);
         }
 
     protected:
         /// Stores data
-        thrust::device_vector<T> data;
+        T * data;
     };
 
 
