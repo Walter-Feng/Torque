@@ -5,6 +5,7 @@
 namespace torque {
 namespace gpu {
 namespace block_sparse {
+
     template<typename T, bool reverse>
     __global__
     void
