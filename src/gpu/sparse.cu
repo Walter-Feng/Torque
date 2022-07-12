@@ -138,7 +138,7 @@ void handle_indices_kernel(
 
 }
 
-thrust::device_vector<int32_t>  handle_indices(
+thrust::device_vector<int32_t> handle_indices(
         const thrust::device_vector<int32_t> & A_indices,
         const thrust::device_vector<int32_t> & B_indices,
         const thrust::device_vector<int32_t> & A_index_table,
