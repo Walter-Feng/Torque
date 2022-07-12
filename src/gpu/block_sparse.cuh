@@ -5,8 +5,6 @@
 
 #define ARMA_ALLOW_FAKE_GCC
 
-#define DEBUG(x) do { printf("shit bug marker %d \n", x); } while (0) ;
-
 #include <armadillo>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
@@ -227,7 +225,7 @@ namespace block_sparse {
             gpuErrchk(cudaMalloc(&this->data, n_data * sizeof(T)));
 
             if (tensor.data) {
-                gpuErrchk(cudaMemcpy(this->data, tensor.data, n_data * sizeof(T), cudaMemcpyDeviceToDevice));
+                gpuErrchk(cudaMemcpy(this->data, tensor.data, n_data * sizeof(T), cudaMemcpyDeviceToDevice))
             } else {
                 throw Error("Source data not allocated!");
             }
@@ -329,7 +327,7 @@ namespace block_sparse {
             this->blocks_dimension = arma::join_horiz(this->blocks_dimension, block_dimension);
             this->block_n_elem = arma::join_vert(this->block_n_elem, n_elem);
             this->index_tables = arma::join_horiz(this->index_tables, index_table);
-            this->block_offsets = arma::join_vert(this->block_offsets, arma::cumsum(n_elem) - n_elem);
+            this->block_offsets = arma::join_vert(this->block_offsets, arma::cumsum(n_elem) - n_elem + original_n_elem);
 
             T * new_data;
             gpuErrchk(cudaMalloc(&new_data, arma::sum(this->block_n_elem) * sizeof(T)));
@@ -408,6 +406,7 @@ namespace block_sparse {
             if (this->data) {
                 const arma::uvec in_range =
                         torque::util::in_range(indices, this->begin_points, this->end_points);
+
                 if (in_range.n_elem) {
                     T temp = 0;
                     for (arma::uword i = 0; i < in_range.n_elem; i++) {
@@ -417,7 +416,7 @@ namespace block_sparse {
                         const arma::uvec relative_indices =
                                 indices - this->begin_points.col(block_index);
 
-                        T dev_temp = 0;
+                        T dev_temp;
                         const arma::uword displacement = block_offsets(block_index) +
                                                          arma::sum(relative_indices % this->index_tables.col(block_index));
 
@@ -450,8 +449,35 @@ namespace block_sparse {
 //            cudaStreamCreate(&stream1);
 //            cudaStreamCreate(&stream2);
 
+            T * A_copies;
+            T * B_copies;
+            T * A_transposed_pointer;
+            T * B_transposed_pointer;
+
+            const auto permutation_generator =
+                    [](const arma::uvec & contracting_indices, const arma::uword target_rank) -> arma::uvec {
+
+                        arma::uvec transposition(target_rank);
+
+                        for(int j=0; j<target_rank; j++) {
+                            transposition(j) = j;
+                        }
+
+                        transposition.shed_rows(contracting_indices);
+
+                        return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{target_rank});
+                    };
+
+
             const arma::uvec this_contracting_indices = contracting_indices.col(0);
             const arma::uvec that_contracting_indices = contracting_indices.col(1);
+
+            const arma::uvec A_permutation =
+                    permutation_generator(this_contracting_indices, this->rank);
+
+            const arma::uvec B_permutation =
+                    permutation_generator(that_contracting_indices, tensor.rank);
+
 
             const arma::uvec contract_dimension = this->dimension(this_contracting_indices);
 
@@ -522,10 +548,6 @@ namespace block_sparse {
                 const arma::uvec padded_B_block_max_dimension =
                         arma::join_vert(B_block_max_dimension, arma::uvec{n_subblocks});
 
-                const arma::uvec A_non_trivial_dimension = arma::find(padded_A_block_max_dimension != 1);
-                const arma::uvec B_non_trivial_dimension = arma::find(padded_B_block_max_dimension != 1);
-
-
                 arma::uvec A_block_max_dimension_copy = A_block_max_dimension;
                 arma::uvec B_block_max_dimension_copy = B_block_max_dimension;
 
@@ -536,14 +558,6 @@ namespace block_sparse {
                 const arma::uvec dimension_after_multiplication =
                         arma::join_vert(A_block_max_dimension_copy, B_block_max_dimension_copy);
 
-                A_subblock_dimension.print("A_subblock_dimension");
-                A_subblock_offsets.print("A_subblock_offsets");
-                padded_A_block_max_dimension.print("padded_A_block_max_dimension");
-                B_subblock_dimension.print("B_subblock_dimension");
-                B_subblock_offsets.print("B_subblock_offsets");
-                padded_B_block_max_dimension.print("padded_A_block_max_dimension");
-
-                T * A_copies;
                 gpuErrchk(cudaMalloc(&A_copies, arma::prod(A_block_max_dimension) * n_subblocks * sizeof(T)));
 
                 block_sparse::reshape<T, false>(
@@ -555,7 +569,6 @@ namespace block_sparse {
                         A_block_max_dimension
                         );
 
-                T * B_copies;
                 gpuErrchk(cudaMalloc(&B_copies, arma::prod(B_block_max_dimension) * n_subblocks * sizeof(T)));
 
                 block_sparse::reshape<T, false>(
@@ -567,137 +580,125 @@ namespace block_sparse {
                         B_block_max_dimension
                 );
 
-                const int A_cutt_rank = A_non_trivial_dimension.n_elem;
-                const int B_cutt_rank = B_non_trivial_dimension.n_elem;
+                const arma::uvec A_non_trivial_dimension_in_original_order =
+                        padded_A_block_max_dimension(arma::find(padded_A_block_max_dimension != 1));
+                const arma::uvec B_non_trivial_dimension_in_original_order =
+                        padded_B_block_max_dimension(arma::find(padded_B_block_max_dimension != 1));
+
+                const arma::uvec permuted_A_dimension = padded_A_block_max_dimension.rows(A_permutation);
+                const arma::uvec permuted_B_dimension = padded_B_block_max_dimension.rows(B_permutation);
+
+                const arma::uvec A_non_trivial_indices = arma::find(permuted_A_dimension != 1);
+                const arma::uvec B_non_trivial_indices = arma::find(permuted_B_dimension != 1);
+
+                const arma::uvec A_non_trivial_permutation = A_permutation(A_non_trivial_indices);
+                const arma::uvec B_non_trivial_permutation = B_permutation(B_non_trivial_indices);
+
+                const arma::uword A_cutt_rank = A_non_trivial_indices.n_elem;
+                const arma::uword B_cutt_rank = B_non_trivial_indices.n_elem;
 
                 std::vector<int> A_dim_in_cutt = std::vector<int>(A_cutt_rank);
                 std::vector<int> A_permutation_in_cutt = std::vector<int>(A_cutt_rank);
 
-                const auto permutation_generator =
-                        [](const arma::uvec & contracting_indices, const arma::uword target_rank) -> arma::uvec {
-
-                            arma::uvec transposition(target_rank);
-
-                            for(int j=0; j<target_rank; j++) {
-                                transposition(j) = j;
-                            }
-
-                            transposition.shed_rows(contracting_indices);
-
-                            return arma::join_vert(arma::join_vert(transposition, contracting_indices), arma::uvec{target_rank});
-                        };
-
-                const arma::uvec A_permutation_generated = permutation_generator(this_contracting_indices, this->rank);
-                const arma::uvec B_permutation_generated = permutation_generator(that_contracting_indices, tensor.rank);
-
-                const arma::uvec A_permutation =
-                        permutation_generator(this_contracting_indices, this->rank)(A_non_trivial_dimension);
-                const arma::uvec B_permutation =
-                        permutation_generator(that_contracting_indices, tensor.rank)(B_non_trivial_dimension);
+                assert(A_non_trivial_dimension_in_original_order.n_elem == A_cutt_rank);
+                assert(B_non_trivial_dimension_in_original_order.n_elem == B_cutt_rank);
 
                 for(arma::uword j=0; j<A_cutt_rank; j++) {
-                    A_dim_in_cutt[j] = padded_A_block_max_dimension(A_non_trivial_dimension(j));
-                    A_permutation_in_cutt[j] = A_permutation(j);
+                    A_dim_in_cutt[j] = A_non_trivial_dimension_in_original_order(j);
+                    A_permutation_in_cutt[j] = A_non_trivial_permutation(j);
                 }
 
                 std::vector<int> B_dim_in_cutt = std::vector<int>(B_cutt_rank);
                 std::vector<int> B_permutation_in_cutt = std::vector<int>(B_cutt_rank);
 
                 for(arma::uword j=0; j<B_cutt_rank; j++) {
-                    B_dim_in_cutt[j] = padded_B_block_max_dimension(B_non_trivial_dimension(j));
-                    B_permutation_in_cutt[j] = B_permutation(j);
+                    B_dim_in_cutt[j] = B_non_trivial_dimension_in_original_order(j);
+                    B_permutation_in_cutt[j] = B_non_trivial_permutation(j);
                 }
-
-                DEBUG(4)
-
-                std::optional<T *> A_transposed = std::nullopt;
-                std::optional<T *> B_transposed = std::nullopt;
 
                 cuttHandle planA, planB;
 
-                if(!A_permutation.is_sorted()) {
-                    T * dev_pointer;
-                    gpuErrchk(cudaMalloc(& dev_pointer, arma::prod(padded_A_block_max_dimension) * sizeof(T)));
-                    A_transposed = {dev_pointer};
+                const bool A_is_sorted = A_non_trivial_permutation.is_sorted();
+                const bool B_is_sorted = B_non_trivial_permutation.is_sorted();
+
+                if(!A_is_sorted) {
+                    assert(arma::prod(padded_A_block_max_dimension) != 0);
+                    gpuErrchk(cudaMalloc(&A_transposed_pointer, arma::prod(padded_A_block_max_dimension) * sizeof(T)));
                     cuttCheck(cuttPlan(&planA, A_cutt_rank,
                                        A_dim_in_cutt.data(),
                                        A_permutation_in_cutt.data(),
                                        sizeof(T), 0));
 
-                    cuttCheck(cuttExecute(planA,
-                                          (void *) const_cast<T *>(A_copies),
-                                          (void *) A_transposed.value()));
+                    cuttCheck(cuttExecute(planA, A_copies, A_transposed_pointer));
 
                     gpuErrchk(cudaFree(A_copies));
                 }
 
-                if(!B_permutation.is_sorted()) {
-                    T * dev_pointer;
-                    gpuErrchk(cudaMalloc(&dev_pointer, arma::prod(padded_A_block_max_dimension) * sizeof(T)));
-                    B_transposed = {dev_pointer};
+                if(!B_is_sorted) {
+                    assert(arma::prod(padded_B_block_max_dimension) != 0);
+                    gpuErrchk(cudaMalloc(&B_transposed_pointer, arma::prod(padded_B_block_max_dimension) * sizeof(T)));
                     cuttCheck(cuttPlan(&planB, B_cutt_rank,
                                        B_dim_in_cutt.data(),
                                        B_permutation_in_cutt.data(),
                                        sizeof(T), 0));
 
-                    cuttCheck(cuttExecute(planB,
-                                          (void *) const_cast<T *>(B_copies),
-                                          (void *) B_transposed.value()));
+                    cuttCheck(cuttExecute(planB, B_copies, B_transposed_pointer));
 
                     gpuErrchk(cudaFree(B_copies));
                 }
 
-                DEBUG(5)
-
-                T * A_ptr = A_transposed.has_value() ? A_transposed.value() : A_copies;
-                T * B_ptr = B_transposed.has_value() ? B_transposed.value() : B_copies;
+                T * A_ptr = !A_is_sorted ? A_transposed_pointer : A_copies;
+                T * B_ptr = !B_is_sorted ? B_transposed_pointer : B_copies;
 
                 cublasHandle_t handle;
                 cublasCreate(&handle);
 
-                DEBUG(6)
-
                 if(result_rank > 0) {
 
-                    const arma::uword contracting_n_elem = arma::prod(A_subblock_dimension(this_contracting_indices));
-                    const arma::uword this_leading_dim = arma::prod(A_block_max_dimension) / contracting_n_elem;
-                    const arma::uword that_leading_dim = arma::prod(B_block_max_dimension) / contracting_n_elem;
+                    const arma::uword contracting_n_elem = arma::prod(A_block_max_dimension(this_contracting_indices));
+
+
+
+                    const arma::uword A_stride = arma::prod(A_block_max_dimension);
+                    const arma::uword B_stride = arma::prod(B_block_max_dimension);
+
+                    const arma::uword A_leading_dim = arma::prod(A_block_max_dimension) / contracting_n_elem;
+                    const arma::uword B_leading_dim = arma::prod(B_block_max_dimension) / contracting_n_elem;
+
+                    const arma::uword C_stride = A_leading_dim * B_leading_dim;
 
                     T * out_pointer;
-                    gpuErrchk(cudaMalloc(&out_pointer, this_leading_dim * that_leading_dim * n_subblocks * sizeof(T)));
+                    gpuErrchk(cudaMalloc(&out_pointer, C_stride * n_subblocks * sizeof(T)));
 
-                    const T * A_array[n_subblocks];
-                    const T * B_array[n_subblocks];
-                    T * C_array[n_subblocks];
-
-                    for(int j=0; j<n_subblocks; j++) {
-                        A_array[j] = A_ptr + j * arma::prod(A_block_max_dimension);
-                        B_array[j] = B_ptr + j * arma::prod(B_block_max_dimension);
-                        C_array[j] = out_pointer + j * this_leading_dim * that_leading_dim;
-                    }
 
                     T one = 1;
                     T zero = 0;
 
                     if constexpr(std::is_same<T, float>::value) {
-                        cublasCheck(cublasSgemmBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, this_leading_dim,
-                                           that_leading_dim, contracting_n_elem, &one, A_array,
-                                           this_leading_dim, B_array, that_leading_dim, &zero, C_array,
-                                           this_leading_dim, n_subblocks));
+                        cublasCheck(cublasSgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, A_leading_dim,
+                                                              B_leading_dim, contracting_n_elem, &one, A_ptr,
+                                                              A_leading_dim, A_stride,
+                                                              B_ptr, B_leading_dim, B_stride,
+                                                              &zero, out_pointer,
+                                                              A_leading_dim, C_stride, n_subblocks));
                     } else if constexpr(std::is_same<T, double>::value) {
-                        cublasCheck(cublasSgemmBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, this_leading_dim,
-                                           that_leading_dim, contracting_n_elem, &one, A_array,
-                                           this_leading_dim, B_array, that_leading_dim, &zero, C_array,
-                                           this_leading_dim, n_subblocks));
+                        cublasCheck(cublasDgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, A_leading_dim,
+                                                              B_leading_dim, contracting_n_elem, &one, A_ptr,
+                                                              A_leading_dim, A_stride,
+                                                              B_ptr, B_leading_dim, B_stride,
+                                                              &zero, out_pointer, A_leading_dim, C_stride,
+                                                              n_subblocks));
                     } else if constexpr(std::is_same<T, half>::value) {
-                        cublasCheck(cublasSgemmBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, this_leading_dim,
-                                           that_leading_dim, contracting_n_elem, &one, A_array,
-                                           this_leading_dim, B_array, that_leading_dim, &zero, C_array,
-                                           this_leading_dim, n_subblocks));
+                        cublasCheck(cublasHgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, A_leading_dim,
+                                                              B_leading_dim, contracting_n_elem, &one, A_ptr,
+                                                              A_leading_dim, A_stride,
+                                                              B_ptr, B_leading_dim, B_stride,
+                                                              &zero, out_pointer,
+                                                              A_leading_dim, C_stride, n_subblocks));
                     }
 
-                    gpuErrchk(cudaFree(A_ptr));
-                    gpuErrchk(cudaFree(B_ptr));
+                    A_is_sorted ? cudaFree(A_copies) : cudaFree(A_transposed_pointer);
+                    B_is_sorted ? cudaFree(B_copies) : cudaFree(B_transposed_pointer);
 
                     const arma::umat new_subblock_dimensions =
                             contracting_info.new_end_points
@@ -711,18 +712,13 @@ namespace block_sparse {
                                 torque::util::generate_index_table(new_subblock_dimensions.col(j));
                     }
 
-                    DEBUG(7)
-
                     arma::umat subblock_offsets =
                             arma::cumsum(arma::prod(new_subblock_dimensions)) - arma::prod(new_subblock_dimensions);
 
-                    DEBUG(8)
                     T * flattened;
                     gpuErrchk(cudaMalloc(&flattened, arma::accu(arma::prod(new_subblock_dimensions)) * sizeof(T)));
 
-                    DEBUG(8)
-
-                    assert(arma::all(dimension_after_multiplication == arma::max(new_subblock_dimensions, 1).t()));
+                    assert(arma::all(dimension_after_multiplication == arma::max(new_subblock_dimensions, 1)));
 
 
                     block_sparse::reshape<T, true>(flattened, out_pointer, new_subblock_dimensions,
@@ -730,6 +726,7 @@ namespace block_sparse {
                                                    subblock_offsets,
                                                    dimension_after_multiplication);
 
+                    gpuErrchk(cudaFree(out_pointer));
                     result.append_blocks(flattened,
                                          contracting_info.new_begin_points,
                                          contracting_info.new_end_points,
@@ -762,7 +759,7 @@ namespace block_sparse {
                     gpuErrchk(cudaFree(B_ptr));
 
                     block_sparse::add<<<1, 1>>>(result.data, dot_per_block);
-                    cudaFree(dot_per_block);
+                    gpuErrchk(cudaFree(dot_per_block));
                 }
 
             }
