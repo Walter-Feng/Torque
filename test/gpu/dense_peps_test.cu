@@ -2,7 +2,7 @@
 
 #define ARMA_ALLOW_FAKE_GCC
 
-#include "gpu/dense.cuh"
+#include "gpu/dense_test.cuh"
 
 #include <cuda_profiler_api.h>
 

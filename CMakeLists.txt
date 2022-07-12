@@ -237,14 +237,14 @@ if(USE_GPU)
 
 if(CUTT_ROOT)
     add_executable(test_gpu_dense
-            test/gpu/dense.cu
+            test/gpu/dense_test.cu
 
             )
 
     target_link_libraries(test_gpu_dense catch2 torque gpu_torque)
 
     add_executable(test_gpu_block_sparse
-            test/gpu/block_sparse.cu
+            test/gpu/block_sparse_test.cu
 
             )
 
