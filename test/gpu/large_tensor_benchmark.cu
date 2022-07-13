@@ -1,5 +1,7 @@
 #include <catch.hpp>
 
+#define ARMA_ALLOW_FAKE_GCC
+
 #include "tensor/dense.h"
 #include "tensor/sparse.h"
 #include "tensor/block_sparse.h"
@@ -45,6 +47,7 @@ TEST_CASE("Block-sparse n_blocks test") {
 
     const auto contraction = chunk_tensor.contract(chunk_matrix, {{1, 1}, {2, 0}});
 
+    CHECK(contraction.query({0,0,0}) == tensor_data.at(0) * matrix_data.at(0));
 
     for (int i = 0; i < lengths.n_elem; i++) {
     }
@@ -54,7 +57,7 @@ TEST_CASE("Block-sparse n_blocks test") {
 
 }
 
-TEST_CASE("Block-sparse n_blocks test") {
+TEST_CASE("Scaling test") {
 
   // (From Eric's code)
   cudaEvent_t start;
