@@ -223,6 +223,52 @@ public:
   }
 
   inline
+  explicit BlockSparseTensor(const T * source_data,
+                             const arma::umat & begin_points,
+                             const arma::umat & end_points,
+                             const arma::uvec & total_dimension,
+                             const arma::umat & index_tables,
+                             const cudaMemcpyKind kind = cudaMemcpyDeviceToDevice) {
+
+    rank = total_dimension.n_elem;
+
+    this->dimension = total_dimension;
+
+    if (rank > 0) {
+      this->begin_points = begin_points;
+      this->end_points = end_points;
+
+      const auto n_blocks = begin_points.n_cols;
+      this->blocks_dimension = end_points - begin_points +
+                               arma::ones<arma::umat>(arma::size(begin_points));
+
+      this->block_n_elem = arma::prod(this->blocks_dimension).t();
+      this->block_offsets = torque::util::nest_sum(this->block_n_elem);
+
+      this->index_tables = index_tables;
+
+      gpuErrchk(cudaMalloc(&this->data, arma::sum(block_n_elem) * sizeof(T)));
+
+      if (source_data) {
+        gpuErrchk(cudaMemcpy(this->data, source_data,
+                             sizeof(T) * arma::sum(block_n_elem), kind));
+      } else {
+        throw Error("Source data not allocated!");
+      }
+    } else {
+      gpuErrchk(cudaMalloc(&this->data, arma::sum(block_n_elem) * sizeof(T)));
+
+      if (source_data) {
+        gpuErrchk(cudaMemcpy(this->data, source_data,
+                             sizeof(T) * arma::sum(block_n_elem), kind));
+      } else {
+        throw Error("Source data not allocated!");
+      }
+    }
+
+  }
+
+  inline
   BlockSparseTensor(T * data,
                     arma::uword rank,
                     arma::uvec && dimension,
@@ -1041,6 +1087,59 @@ public:
     gpuErrchk(cudaFree(flattened));
 
     return a;
+  }
+
+  torque::gpu::BlockSparseTensor<T>
+  slice(const arma::uvec & divisor) const {
+
+    const arma::umat sub_blocks = blocks_dimension.each_col() / divisor;
+
+    const arma::uvec divisor_table = torque::util::generate_index_table(
+        divisor);
+
+    const arma::uword n_sub_blocks = arma::prod(divisor);
+
+    const arma::umat residue =
+        blocks_dimension - sub_blocks.each_col() % divisor;
+
+    if (!residue.is_zero()) {
+      throw Error("current slice does not support residues");
+    }
+
+    arma::umat new_begin_points;
+    arma::umat new_end_points;
+    arma::umat new_index_tables;
+
+    for (int i = 0; i < begin_points.n_cols; i++) {
+
+      const arma::uvec begin_point = begin_points.col(i);
+      const arma::uvec end_point = end_points.col(i);
+
+      arma::uvec new_begin_points_generated(this->rank, n_sub_blocks);
+      arma::uvec new_end_points_generated(this->rank, n_sub_blocks);
+
+      for (arma::uword j = 0; j < n_sub_blocks; j++) {
+        const arma::uvec sub_block_index =
+            torque::util::index_to_indices(j, divisor_table);
+
+        new_begin_points_generated.col(j) =
+            begin_point + sub_block_index % sub_blocks.col(i);
+
+        new_end_points_generated.col(j) =
+            new_begin_points_generated.col(j) + sub_blocks.col(i) - 1;
+      }
+
+      new_begin_points = arma::join_horiz(new_begin_points,
+                                          new_begin_points_generated);
+      new_end_points = arma::join_horiz(new_end_points,
+                                        new_end_points_generated);
+      new_index_tables =
+          arma::join_horiz(new_index_tables,
+                           arma::repmat(index_tables.col(i), 1, n_sub_blocks));
+    }
+
+    return {this->data, new_begin_points, new_end_points, dimension, new_index_tables};
+
   }
 
 protected:

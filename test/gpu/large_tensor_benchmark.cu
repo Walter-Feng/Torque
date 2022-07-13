@@ -8,15 +8,8 @@
 #include "gpu/sparse.cuh"
 #include "gpu/block_sparse.cuh"
 
-template<typename T>
-torque::gpu::BlockSparseTensor<T>
-slice(const torque::gpu::BlockSparseTensor<T> & tensor,
-      const arma::uvec & divisor) {
 
-
-}
-
-TEST_CASE("Scaling test") {
+TEST_CASE("Block-sparse n_blocks test") {
 
   // (From Eric's code)
   cudaEvent_t start;
@@ -30,8 +23,30 @@ TEST_CASE("Scaling test") {
   const arma::uvec lengths{1, 16, 32, 48, 64, 80, 96, 128};
   SECTION("3-rank tensor - matrix contraction") {
 
-    for (int i = 0; i < lengths.n_elem; i++) {
+    std::vector<double> tensor_data =
+        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
 
+    std::vector<double> matrix_data =
+        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
+
+
+    const arma::umat begin_point = arma::uvec{0, 0, 0};
+    const arma::umat end_point = arma::uvec{0, 0, 0};
+
+    torque::gpu::BlockSparseTensor<double> chunk_tensor(tensor_data.data(),
+                                                        arma::uvec{0, 0, 0},
+                                                        arma::uvec{0, 0, 0},
+                                                        arma::uvec{1, 1, 1});
+
+    torque::gpu::BlockSparseTensor<double> chunk_matrix(matrix_data.data(),
+                                                        arma::uvec{0, 0},
+                                                        arma::uvec{0, 0},
+                                                        arma::uvec{1, 1});
+
+    const auto contraction = chunk_tensor.contract(chunk_matrix, {{1, 1}, {2, 0}});
+
+
+    for (int i = 0; i < lengths.n_elem; i++) {
     }
 
   }
@@ -52,7 +67,6 @@ TEST_CASE("Block-sparse n_blocks test") {
 
   const arma::uvec lengths{1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
   SECTION("3-rank tensor - matrix contraction") {
-
 
   }
 
