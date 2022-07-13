@@ -1138,7 +1138,8 @@ public:
                            arma::repmat(index_tables.col(i), 1, n_sub_blocks));
     }
 
-    return {this->data, new_begin_points, new_end_points, dimension, new_index_tables};
+    return BlockSparseTensor<T>(this->data, new_begin_points, new_end_points,
+                                dimension, new_index_tables);
 
   }
 
