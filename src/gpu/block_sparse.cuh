@@ -63,19 +63,19 @@ reshape(T * dest_data,
   }
 
   int * dev_block_index_tables;
-  cudaMalloc(&dev_block_index_tables, sizeof(int) * blocks_index_tables.n_elem);
+  gpuErrchk(cudaMalloc(&dev_block_index_tables, sizeof(int) * blocks_index_tables.n_elem));
   util::arma_to_cuda(dev_block_index_tables,
                      arma::conv_to<arma::Col<int>>::from(
                          arma::vectorise(blocks_index_tables)));
 
   int * dev_blocks_strides;
-  cudaMalloc(&dev_blocks_strides, sizeof(int) * blocks_strides.n_elem);
+  gpuErrchk(cudaMalloc(&dev_blocks_strides, sizeof(int) * blocks_strides.n_elem));
   util::arma_to_cuda(dev_blocks_strides,
                      arma::conv_to<arma::Col<int>>::from(
                          arma::vectorise(blocks_strides)));
 
   int * dev_block_offsets;
-  cudaMalloc(&dev_block_offsets, sizeof(int) * blocks_offsets.n_elem);
+  gpuErrchk(cudaMalloc(&dev_block_offsets, sizeof(int) * blocks_offsets.n_elem));
   util::arma_to_cuda(dev_block_offsets, blocks_offsets);
 
   const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions,
@@ -86,7 +86,7 @@ reshape(T * dest_data,
       padded_dest_dimensions);
 
   int * dev_dest_index_table;
-  cudaMalloc(&dev_dest_index_table, sizeof(int) * dest_index_table.n_elem);
+  gpuErrchk(cudaMalloc(&dev_dest_index_table, sizeof(int) * dest_index_table.n_elem));
   util::arma_to_cuda(dev_dest_index_table,
                      arma::conv_to<arma::Col<int>>::from(
                          arma::vectorise(dest_index_table)));
@@ -97,7 +97,7 @@ reshape(T * dest_data,
   const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
 
   int * n_elem_nest_sum_dev;
-  cudaMalloc(&n_elem_nest_sum_dev, sizeof(int) * n_elem_nest_sum.n_elem);
+  gpuErrchk(cudaMalloc(&n_elem_nest_sum_dev, sizeof(int) * n_elem_nest_sum.n_elem));
   util::arma_to_cuda(n_elem_nest_sum_dev, n_elem_nest_sum);
 
   dim3 blockSize(256);
@@ -116,11 +116,11 @@ reshape(T * dest_data,
       dest_data
   );
 
-  cudaFree(dev_block_index_tables);
-  cudaFree(dev_blocks_strides);
-  cudaFree(dev_block_offsets);
-  cudaFree(n_elem_nest_sum_dev);
-  cudaFree(dev_dest_index_table);
+  gpuErrchk(cudaFree(dev_block_index_tables));
+  gpuErrchk(cudaFree(dev_blocks_strides));
+  gpuErrchk(cudaFree(dev_block_offsets));
+  gpuErrchk(cudaFree(n_elem_nest_sum_dev));
+  gpuErrchk(cudaFree(dev_dest_index_table));
 
 }
 
@@ -238,7 +238,6 @@ public:
       this->begin_points = begin_points;
       this->end_points = end_points;
 
-      const auto n_blocks = begin_points.n_cols;
       this->blocks_dimension = end_points - begin_points +
                                arma::ones<arma::umat>(arma::size(begin_points));
 
@@ -1093,8 +1092,7 @@ public:
 
     const arma::umat sub_blocks = blocks_dimension.each_col() / divisor;
 
-    const arma::uvec divisor_table = torque::util::generate_index_table(
-        divisor);
+    const arma::uvec divisor_table = torque::util::generate_index_table(divisor);
 
     const arma::uword n_sub_blocks = arma::prod(divisor);
 
@@ -1114,8 +1112,8 @@ public:
       const arma::uvec begin_point = begin_points.col(i);
       const arma::uvec end_point = end_points.col(i);
 
-      arma::uvec new_begin_points_generated(this->rank, n_sub_blocks);
-      arma::uvec new_end_points_generated(this->rank, n_sub_blocks);
+      arma::umat new_begin_points_generated(this->rank, n_sub_blocks);
+      arma::umat new_end_points_generated(this->rank, n_sub_blocks);
 
       for (arma::uword j = 0; j < n_sub_blocks; j++) {
         const arma::uvec sub_block_index =
@@ -1138,9 +1136,9 @@ public:
     }
 
     return BlockSparseTensor<T>(this->data, new_begin_points, new_end_points,
-                                dimension, new_index_tables);
+                                dimension, cudaMemcpyDeviceToDevice);
 
-  }
+    }
 
 protected:
   /// Stores data
