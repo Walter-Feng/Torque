@@ -132,81 +132,81 @@ TEST_CASE("block sparse tensor operation") {
         }
     }
 
-//    SECTION("matrix inner product") {
-//        const std::vector<float> block1{0, 1, 2, 3};
-//
-//        const std::vector<float> block2{0, 7, 8, 9};
-//
-//        torque::gpu::BlockSparseTensor<float> tensor_format( {3, 3});
-//
-//        tensor_format.append_block(block1.data(), {0, 0}, {1, 1}, {1, 2});
-//        tensor_format.append_block(block2.data(), {1, 1}, {2, 2}, {1, 2});
-//
-//        const auto A_squared =
-//                tensor_format.contract(tensor_format,
-//                                       arma::umat({{1, 0}, {0, 1}}));
-//
-//        const arma::mat ref_A = arma::mat{{0, 1, 0}, {2, 3, 7}, {0, 8, 9}}.t();
-//
-//        const double result = arma::accu(ref_A % ref_A.t());
-//
-//        CHECK(A_squared.to_number() == result);
-//    }
-//
-//    SECTION("tensor-vector contraction") {
-//        const std::vector<float> tensor_data_1{0, 1, 2, 3};
-//        const std::vector<float> tensor_data_2{4, 5, 6, 7};
-//
-//        torque::gpu::BlockSparseTensor<float> tensor_format({2, 2, 2});
-//
-//        tensor_format.append_block(tensor_data_1.data(), {0, 0, 0}, {1, 1, 0}, {1, 2, 4});
-//        tensor_format.append_block(tensor_data_2.data(), {0, 0, 1}, {1, 1, 1}, {1, 2, 4});
-//
-//        const std::vector<float> vector{1, 2};
-//
-//        torque::gpu::BlockSparseTensor<float> vector_in_tensor({2});
-//        vector_in_tensor.append_block(vector.data(), {0}, {1}, {1});
-//
-//        const auto contraction = tensor_format.contract(vector_in_tensor, arma::umat{{0, 0}});
-//
-//        CHECK(contraction.query({0, 0}) == 2);
-//        CHECK(contraction.query({1, 0}) == 8);
-//        CHECK(contraction.query({0, 1}) == 14);
-//        CHECK(contraction.query({1, 1}) == 20);
-//
-//        const auto contraction_2 = tensor_format.contract(vector_in_tensor, arma::umat{{1, 0}});
-//
-//        CHECK(contraction_2.query({0, 0}) == 4);
-//        CHECK(contraction_2.query({1, 0}) == 7);
-//        CHECK(contraction_2.query({0, 1}) == 16);
-//        CHECK(contraction_2.query({1, 1}) == 19);
-//
-//        const auto contraction_3 = tensor_format.contract(vector_in_tensor, arma::umat{{2, 0}});
-//
-//        CHECK(contraction_3.query({1, 0}) == 11);
-//
-//    }
-//
-//    SECTION("tensor-matrix contraction") {
-//        const std::vector<float> tensor_data1{0, 1, 2, 3};
-//        const std::vector<float> tensor_data2{4, 5, 6, 7};
-//        const std::vector<float> tensor_data3{8, 9, 10, 11};
-//
-//        torque::gpu::BlockSparseTensor<float> tensor_format({2, 2, 3});
-//        tensor_format.append_block(tensor_data3.data(), {0, 0, 2}, {1, 1, 2}, {1, 2, 4});
-//        tensor_format.append_block(tensor_data2.data(), {0, 0, 1}, {1, 1, 1}, {1, 2, 4});
-//        tensor_format.append_block(tensor_data1.data(), {0, 0, 0}, {1, 1, 0}, {1, 2, 4});
-//
-//        const std::vector<float> matrix{1, 2, 3, 4};
-//
-//        torque::gpu::BlockSparseTensor<float> matrix_in_tensor({2, 2}); // row vector
-//
-//        matrix_in_tensor.append_block(matrix.data(), {0, 0}, {1, 1}, {1, 2});
-//        const auto contraction = tensor_format.contract(matrix_in_tensor, arma::umat{{0, 1}, {1, 0}});
-//
-//        CHECK(contraction.query({0}) == 19);
-//        CHECK(contraction.query({1}) == 59);
-//        CHECK(contraction.query({2}) == 99);
-//    }
+    SECTION("matrix inner product") {
+        const std::vector<float> block1{0, 1, 2, 3};
+
+        const std::vector<float> block2{0, 7, 8, 9};
+
+        torque::gpu::BlockSparseTensor<float> tensor_format( {3, 3});
+
+        tensor_format.append_block(block1.data(), {0, 0}, {1, 1}, {1, 2});
+        tensor_format.append_block(block2.data(), {1, 1}, {2, 2}, {1, 2});
+
+        const auto A_squared =
+                tensor_format.contract(tensor_format,
+                                       arma::umat({{1, 0}, {0, 1}}));
+
+        const arma::mat ref_A = arma::mat{{0, 1, 0}, {2, 3, 7}, {0, 8, 9}}.t();
+
+        const double result = arma::accu(ref_A % ref_A.t());
+
+        CHECK(A_squared.to_number() == result);
+    }
+
+    SECTION("tensor-vector contraction") {
+        const std::vector<float> tensor_data_1{0, 1, 2, 3};
+        const std::vector<float> tensor_data_2{4, 5, 6, 7};
+
+        torque::gpu::BlockSparseTensor<float> tensor_format({2, 2, 2});
+
+        tensor_format.append_block(tensor_data_1.data(), {0, 0, 0}, {1, 1, 0}, {1, 2, 4});
+        tensor_format.append_block(tensor_data_2.data(), {0, 0, 1}, {1, 1, 1}, {1, 2, 4});
+
+        const std::vector<float> vector{1, 2};
+
+        torque::gpu::BlockSparseTensor<float> vector_in_tensor({2});
+        vector_in_tensor.append_block(vector.data(), {0}, {1}, {1});
+
+        const auto contraction = tensor_format.contract(vector_in_tensor, arma::umat{{0, 0}});
+
+        CHECK(contraction.query({0, 0}) == 2);
+        CHECK(contraction.query({1, 0}) == 8);
+        CHECK(contraction.query({0, 1}) == 14);
+        CHECK(contraction.query({1, 1}) == 20);
+
+        const auto contraction_2 = tensor_format.contract(vector_in_tensor, arma::umat{{1, 0}});
+
+        CHECK(contraction_2.query({0, 0}) == 4);
+        CHECK(contraction_2.query({1, 0}) == 7);
+        CHECK(contraction_2.query({0, 1}) == 16);
+        CHECK(contraction_2.query({1, 1}) == 19);
+
+        const auto contraction_3 = tensor_format.contract(vector_in_tensor, arma::umat{{2, 0}});
+
+        CHECK(contraction_3.query({1, 0}) == 11);
+
+    }
+
+    SECTION("tensor-matrix contraction") {
+        const std::vector<float> tensor_data1{0, 1, 2, 3};
+        const std::vector<float> tensor_data2{4, 5, 6, 7};
+        const std::vector<float> tensor_data3{8, 9, 10, 11};
+
+        torque::gpu::BlockSparseTensor<float> tensor_format({2, 2, 3});
+        tensor_format.append_block(tensor_data3.data(), {0, 0, 2}, {1, 1, 2}, {1, 2, 4});
+        tensor_format.append_block(tensor_data2.data(), {0, 0, 1}, {1, 1, 1}, {1, 2, 4});
+        tensor_format.append_block(tensor_data1.data(), {0, 0, 0}, {1, 1, 0}, {1, 2, 4});
+
+        const std::vector<float> matrix{1, 2, 3, 4};
+
+        torque::gpu::BlockSparseTensor<float> matrix_in_tensor({2, 2}); // row vector
+
+        matrix_in_tensor.append_block(matrix.data(), {0, 0}, {1, 1}, {1, 2});
+        const auto contraction = tensor_format.contract(matrix_in_tensor, arma::umat{{0, 1}, {1, 0}});
+
+        CHECK(contraction.query({0}) == 19);
+        CHECK(contraction.query({1}) == 59);
+        CHECK(contraction.query({2}) == 99);
+    }
 
 }

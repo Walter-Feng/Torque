@@ -230,26 +230,15 @@ target_link_libraries(test_tensor catch2 torque)
 if(USE_GPU)
     add_executable(test_gpu_tensor
             test/gpu/sparse_test.cu
-
             )
 
+    if(CUTT_ROOT)
+        target_sources(test_gpu_tensor PUBLIC
+                test/gpu/dense_test.cu
+                test/gpu/block_sparse_test.cu
+                )
+    endif()
     target_link_libraries(test_gpu_tensor catch2 torque gpu_torque)
-
-if(CUTT_ROOT)
-    add_executable(test_gpu_dense
-            test/gpu/dense.cu
-
-            )
-
-    target_link_libraries(test_gpu_dense catch2 torque gpu_torque)
-
-    add_executable(test_gpu_block_sparse
-            test/gpu/block_sparse.cu
-
-            )
-
-    target_link_libraries(test_gpu_block_sparse catch2 torque gpu_torque)
-endif()
 
     add_executable(cpu_gpu_benchmark
             test/gpu/cpu_gpu_comparison.cu
