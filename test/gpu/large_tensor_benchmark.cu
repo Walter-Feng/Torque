@@ -60,10 +60,7 @@ TEST_CASE("Block-sparse n_blocks test") {
                                                   arma::uvec{1, 1});
 
     START_TIMER();
-    for (int i = 0; i < 1000; i++) {
-      const auto contraction = tensor.contract(matrix, {{1, 1},
-                                                        {2, 0}});
-    }
+    const auto contraction = tensor.contract(matrix, {{1, 1}, {2, 0}});
     STOP_RECORD_TIMER(gpu_time_contraction);
 
     std::cout << "single element ref: " << gpu_time_contraction << std::endl;
@@ -103,11 +100,9 @@ TEST_CASE("Block-sparse n_blocks test") {
         }
 
         START_TIMER();
-        for (int l = 0; l < 1000; l++) {
-          const auto contraction = sliced_tensor.contract(sliced_matrix,
-                                                          {{1, 1},
-                                                           {2, 0}});
-        }
+        const auto contraction = sliced_tensor.contract(sliced_matrix,
+                                                        {{1, 1},
+                                                         {2, 0}});
         STOP_RECORD_TIMER(gpu_time_contraction);
 
         std::cout << j << "-slice contraction time consumed: " << gpu_time_contraction << std::endl;

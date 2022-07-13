@@ -887,9 +887,8 @@ public:
                                         A_ptr,
                                         A_leading_dim, A_stride,
                                         B_ptr, B_leading_dim, B_stride,
-                                        &zero, out_pointer, A_leading_dim,
-                                        C_stride,
-                                        n_subblocks));
+                                        &zero, out_pointer,
+                                        A_leading_dim, C_stride, n_subblocks));
         } else if constexpr(std::is_same<T, half>::value) {
           cublasCheck(
               cublasHgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T,
