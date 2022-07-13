@@ -47,7 +47,7 @@ TEST_CASE("Block-sparse n_blocks test") {
 
     const auto contraction = chunk_tensor.contract(chunk_matrix, {{1, 1}, {2, 0}});
 
-    CHECK(contraction.query({0,0,0}) == tensor_data.at(0) * matrix_data.at(0));
+    CHECK(contraction.query({0}) == tensor_data.at(0) * matrix_data.at(0));
 
     for (int i = 0; i < lengths.n_elem; i++) {
     }
