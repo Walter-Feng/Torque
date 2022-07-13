@@ -31,29 +31,29 @@ cmake_minimum_required(VERSION 3.17)
 
 option(USE_GPU "Use GPU" OFF)
 
-if(USE_GPU)
+if (USE_GPU)
     project(torque LANGUAGES CXX CUDA)
-else()
+else ()
     project(torque LANGUAGES CXX)
-endif()
+endif ()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 
-IF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.git)
+IF (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.git)
     FIND_PACKAGE(Git)
-    IF(GIT_FOUND)
+    IF (GIT_FOUND)
         EXECUTE_PROCESS(
                 COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
                 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                 OUTPUT_VARIABLE "TORQUE_BUILD_VERSION"
                 ERROR_QUIET
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
-        MESSAGE( STATUS "Git version: ${TORQUE_BUILD_VERSION}" )
-    ELSE(GIT_FOUND)
+        MESSAGE(STATUS "Git version: ${TORQUE_BUILD_VERSION}")
+    ELSE (GIT_FOUND)
         SET(TORQUE_BUILD_VERSION 0)
-    ENDIF(GIT_FOUND)
-ENDIF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.git)
+    ENDIF (GIT_FOUND)
+ENDIF (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.git)
 
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in
         ${CMAKE_CURRENT_BINARY_DIR}/src/version.h)
@@ -118,53 +118,53 @@ set_target_properties(torque
 
 option(WITH_CUTENSOR "Use cuTensor" OFF)
 
-if(USE_GPU)
+if (USE_GPU)
     find_package(CUDA)
 
     include_directories("${CUDA_INCLUDE_DIRS}")
 
     find_package(CUDAToolkit REQUIRED)
 
-    if(WITH_CUTENSOR)
+    if (WITH_CUTENSOR)
 
-        if(NOT DEFINED ENV{CUTENSOR_ROOT} AND NOT DEFINED CUTENSOR_ROOT)
+        if (NOT DEFINED ENV{CUTENSOR_ROOT} AND NOT DEFINED CUTENSOR_ROOT)
             message("cuTensor not found. A homebrew implementation will be used.")
             set(WITH_CUTENSOR OFF)
-        else()
-            if(DEFINED ENV{CUTENSOR_ROOT})
+        else ()
+            if (DEFINED ENV{CUTENSOR_ROOT})
                 set(CUTENSOR_ROOT "$ENV{CUTENSOR_ROOT}")
-            endif()
+            endif ()
             message("-- Looking for cuTENSOR in ${CUTENSOR_ROOT}")
-            if(NOT EXISTS ${CUTENSOR_ROOT})
+            if (NOT EXISTS ${CUTENSOR_ROOT})
                 message("Cannot find CUTENSOR_ROOT")
-            else()
+            else ()
                 add_definitions(-DUSE_CUTENSOR)
 
-                if(WITH_CUTENSOR)
-                    if(NOT TARGET cutensor)
+                if (WITH_CUTENSOR)
+                    if (NOT TARGET cutensor)
                         add_library(cutensor SHARED IMPORTED)
-                        if(WIN32)
+                        if (WIN32)
                             set(CUTENSOR_LIBRARY_NAME "cutensor.dll")
                             set(CUTENSOR_LIBRARY_DEF "cutensor.lib")
-                        else()
+                        else ()
                             set(CUTENSOR_LIBRARY_NAME "libcutensor.so")
-                        endif()
+                        endif ()
                         set(LIB_DIR "/lib")
 
                         set_target_properties(cutensor PROPERTIES
                                 IMPORTED_LOCATION "${CUTENSOR_ROOT}/${LIB_DIR}/${CUTENSOR_LIBRARY_NAME}"
                                 IMPORTED_IMPLIB "${CUTENSOR_ROOT}/${LIB_DIR}/${CUTENSOR_LIBRARY_DEF}"
                                 INTERFACE_INCLUDE_DIRECTORIES "${CUTENSOR_ROOT}/include")
-                    endif()
+                    endif ()
 
-                    include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include )
+                    include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${CUTENSOR_ROOT}/include)
 
                     message("-- cuTENSOR linked.")
-                endif()
-            endif()
-        endif()
+                endif ()
+            endif ()
+        endif ()
 
-    endif()
+    endif ()
 
     add_library(gpu_torque SHARED
 
@@ -175,13 +175,13 @@ if(USE_GPU)
 
     target_link_libraries(gpu_torque ${ARMADILLO_LIBRARIES})
 
-    if(WITH_CUTENSOR)
+    if (WITH_CUTENSOR)
         target_link_libraries(gpu_torque cutensor CUDA::cublas CUDA::cudart)
-    else()
+    else ()
         target_link_libraries(gpu_torque CUDA::cublas CUDA::cudart)
-    endif()
+    endif ()
 
-    if(CUTT_ROOT)
+    if (CUTT_ROOT)
 
         ## cutt library ##
         set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
@@ -204,12 +204,10 @@ if(USE_GPU)
             target_link_libraries(gpu_torque ${CUTT_LIBRARIES})
         endif ()
 
-    endif()
+    endif ()
 
 
-
-
-endif()
+endif ()
 
 
 ####################z
@@ -219,25 +217,25 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test)
 
 add_executable(test_tensor
-            test/dense_tensor_test.cpp
-            test/sparse_tensor_test.cpp
-            test/block_sparse_tensor_test.cpp
+        test/dense_tensor_test.cpp
+        test/sparse_tensor_test.cpp
+        test/block_sparse_tensor_test.cpp
         )
 
 target_link_libraries(test_tensor catch2 torque)
 
 
-if(USE_GPU)
+if (USE_GPU)
     add_executable(test_gpu_tensor
             test/gpu/sparse_test.cu
             )
 
-    if(CUTT_ROOT)
+    if (CUTT_ROOT)
         target_sources(test_gpu_tensor PUBLIC
                 test/gpu/dense_test.cu
                 test/gpu/block_sparse_test.cu
                 )
-    endif()
+    endif ()
     target_link_libraries(test_gpu_tensor catch2 torque gpu_torque)
 
     add_executable(cpu_gpu_benchmark
@@ -257,7 +255,13 @@ if(USE_GPU)
             )
 
     target_link_libraries(dense_peps_benchmark catch2 torque gpu_torque)
-endif()
+
+    add_executable(large_tensor_benchmark
+            test/gpu/large_tensor_benchmark.cu
+            )
+
+    target_link_libraries(large_tensor_benchmark catch2 torque gpu_torque)
+endif ()
 
 
 
