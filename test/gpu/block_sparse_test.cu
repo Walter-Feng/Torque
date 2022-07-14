@@ -229,4 +229,7 @@ TEST_CASE("block sparse tensor operation") {
     CHECK(contraction.query({2}) == 99);
   }
 
+  cudaDeviceSynchronize();
+  cudaDeviceReset();
+  cudaDeviceSynchronize();
 }

@@ -33,9 +33,6 @@ TEST_CASE("Block-sparse n_blocks test") {
 
   float gpu_time_contraction = -1;
 
-  cublasHandle_t handle;
-  cublasCreate(&handle);
-
   std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
   const arma::uvec lengths{4, 8, 16, 32, 64, 128};
   const arma::uvec power{2, 3, 4, 5, 6, 7};
@@ -68,7 +65,7 @@ TEST_CASE("Block-sparse n_blocks test") {
     for (int i = 0; i < lengths.n_elem; i++) {
 
       std::cout << std::endl;
-      std::cout << "contraction with unit length " << i << std::endl;
+      std::cout << "contraction with unit length " << lengths(i)  << std::endl;
 
       const arma::uword length = lengths(i);
 

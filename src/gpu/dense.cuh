@@ -491,6 +491,8 @@ public:
                     &zero, out_pointer, this_leading_dim);
     }
 
+    cublasDestroy(handle);
+
 #endif
 
     return DenseTensor<T>(std::move(result), new_dimension);

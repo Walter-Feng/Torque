@@ -391,4 +391,7 @@ TEST_CASE("sparse tensor in gpu") {
               << " milliseconds" << std::endl;
   }
 
+cudaDeviceSynchronize();
+cudaDeviceReset();
+cudaDeviceSynchronize();
 }

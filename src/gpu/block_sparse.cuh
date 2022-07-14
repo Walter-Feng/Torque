@@ -13,7 +13,7 @@
 #include "tensor/block_sparse.h"
 #include "gpu/util/thrust_arma_fusion.cuh"
 #include "gpu/util/lib_helper.cuh"
-#include <memory>
+
 
 #include "error.h"
 
@@ -63,19 +63,22 @@ reshape(T * dest_data,
   }
 
   int * dev_block_index_tables;
-  gpuErrchk(cudaMalloc(&dev_block_index_tables, sizeof(int) * blocks_index_tables.n_elem));
+  gpuErrchk(cudaMalloc(&dev_block_index_tables,
+                       sizeof(int) * blocks_index_tables.n_elem));
   util::arma_to_cuda(dev_block_index_tables,
                      arma::conv_to<arma::Col<int>>::from(
                          arma::vectorise(blocks_index_tables)));
 
   int * dev_blocks_strides;
-  gpuErrchk(cudaMalloc(&dev_blocks_strides, sizeof(int) * blocks_strides.n_elem));
+  gpuErrchk(
+      cudaMalloc(&dev_blocks_strides, sizeof(int) * blocks_strides.n_elem));
   util::arma_to_cuda(dev_blocks_strides,
                      arma::conv_to<arma::Col<int>>::from(
                          arma::vectorise(blocks_strides)));
 
   int * dev_block_offsets;
-  gpuErrchk(cudaMalloc(&dev_block_offsets, sizeof(int) * blocks_offsets.n_elem));
+  gpuErrchk(
+      cudaMalloc(&dev_block_offsets, sizeof(int) * blocks_offsets.n_elem));
   util::arma_to_cuda(dev_block_offsets, blocks_offsets);
 
   const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions,
@@ -86,7 +89,8 @@ reshape(T * dest_data,
       padded_dest_dimensions);
 
   int * dev_dest_index_table;
-  gpuErrchk(cudaMalloc(&dev_dest_index_table, sizeof(int) * dest_index_table.n_elem));
+  gpuErrchk(
+      cudaMalloc(&dev_dest_index_table, sizeof(int) * dest_index_table.n_elem));
   util::arma_to_cuda(dev_dest_index_table,
                      arma::conv_to<arma::Col<int>>::from(
                          arma::vectorise(dest_index_table)));
@@ -97,7 +101,8 @@ reshape(T * dest_data,
   const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
 
   int * n_elem_nest_sum_dev;
-  gpuErrchk(cudaMalloc(&n_elem_nest_sum_dev, sizeof(int) * n_elem_nest_sum.n_elem));
+  gpuErrchk(
+      cudaMalloc(&n_elem_nest_sum_dev, sizeof(int) * n_elem_nest_sum.n_elem));
   util::arma_to_cuda(n_elem_nest_sum_dev, n_elem_nest_sum);
 
   dim3 blockSize(256);
@@ -641,6 +646,9 @@ public:
       return BlockSparseTensor<T>(new_dimension);
     }
 
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+
     arma::umat new_blocks_dimensions =
         total_end_points - total_begin_points +
         arma::ones<arma::umat>(arma::size(total_begin_points));
@@ -821,6 +829,7 @@ public:
 
         cuttCheck(cuttExecute(planA, A_copies, A_transposed_pointer));
 
+        cuttCheck(cuttDestroy(planA));
         gpuErrchk(cudaFree(A_copies));
       }
 
@@ -836,14 +845,12 @@ public:
 
         cuttCheck(cuttExecute(planB, B_copies, B_transposed_pointer));
 
+        cuttCheck(cuttDestroy(planB));
         gpuErrchk(cudaFree(B_copies));
       }
 
       T * A_ptr = !A_is_sorted ? A_transposed_pointer : A_copies;
       T * B_ptr = !B_is_sorted ? B_transposed_pointer : B_copies;
-
-      cublasHandle_t handle;
-      cublasCreate(&handle);
 
       if (result_rank > 0) {
 
@@ -974,8 +981,9 @@ public:
         block_sparse::add<<<1, 1>>>(result_data, dot_temp);
 
       }
-
     }
+
+    cublasDestroy(handle);
 
     if (result_rank == 0) {
       gpuErrchk(cudaFree(dot_temp));
