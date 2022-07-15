@@ -697,12 +697,21 @@ TEST_CASE("Sparse Tensor Scaling test") {
         matrix_indices(j) = j;
       }
 
+      const arma::uvec matrix_index_table = torque::util::generate_index_table(
+          arma::uvec{length, length});
+
+
       const torque::gpu::SparseTensor<double>
           chunk_tensor(tensor_data.data(),
+                       tensor_indices,
+                       tensor_index_table,
                        arma::uvec{length, length, length, length});
 
       const torque::gpu::SparseTensor<double>
-          chunk_matrix(matrix_data.data(), arma::uvec{length, length});
+          chunk_matrix(matrix_data.data(),
+                       matrix_indices,
+                       matrix_index_table,
+                       arma::uvec{length, length});
 
 
       START_TIMER();
