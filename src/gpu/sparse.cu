@@ -167,7 +167,7 @@ thrust::device_vector<int32_t> handle_indices(
 
     thrust::device_vector<int32_t> output(A_indices.size() * B_indices.size());
 
-    handle_indices_kernel<<<blockSize, gridSize>>>(
+    handle_indices_kernel<<<gridSize, blockSize>>>(
             thrust::raw_pointer_cast(A_indices.data()),
             A_indices.size(),
             thrust::raw_pointer_cast(B_indices.data()),

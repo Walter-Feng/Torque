@@ -33,14 +33,14 @@ template<typename T, bool reverse>
 __global__
 void
 reshape_kernel(const T * src_data,
-               const int * block_index_tables,
-               const int * blocks_strides,
-               const int * blocks_offsets,
-               const int * n_elem_nest_sum,
-               int n_block,
-               int n_elem,
-               int rank,
-               const int * dest_index_table,
+               const uint32_t * block_index_tables,
+               const uint32_t * blocks_strides,
+               const uint32_t * blocks_offsets,
+               const uint32_t * n_elem_nest_sum,
+               uint32_t n_block,
+               uint32_t n_elem,
+               uint32_t rank,
+               const uint32_t * dest_index_table,
                T * dest_data);
 
 template<typename T, bool reverse>
@@ -57,28 +57,28 @@ reshape(T * dest_data,
 
   arma::umat blocks_index_tables(arma::size(blocks_dimensions));
 
-  for (int i = 0; i < n_blocks; i++) {
+  for (uint32_t i = 0; i < n_blocks; i++) {
     blocks_index_tables.col(i) = torque::util::generate_index_table(
         blocks_dimensions.col(i));
   }
 
-  int * dev_block_index_tables;
+  uint32_t * dev_block_index_tables;
   gpuErrchk(cudaMalloc(&dev_block_index_tables,
-                       sizeof(int) * blocks_index_tables.n_elem));
+                       sizeof(uint32_t) * blocks_index_tables.n_elem));
   util::arma_to_cuda(dev_block_index_tables,
-                     arma::conv_to<arma::Col<int>>::from(
+                     arma::conv_to<arma::Col<uint32_t>>::from(
                          arma::vectorise(blocks_index_tables)));
 
-  int * dev_blocks_strides;
+  uint32_t * dev_blocks_strides;
   gpuErrchk(
-      cudaMalloc(&dev_blocks_strides, sizeof(int) * blocks_strides.n_elem));
+      cudaMalloc(&dev_blocks_strides, sizeof(uint32_t) * blocks_strides.n_elem));
   util::arma_to_cuda(dev_blocks_strides,
-                     arma::conv_to<arma::Col<int>>::from(
+                     arma::conv_to<arma::Col<uint32_t>>::from(
                          arma::vectorise(blocks_strides)));
 
-  int * dev_block_offsets;
+  uint32_t * dev_block_offsets;
   gpuErrchk(
-      cudaMalloc(&dev_block_offsets, sizeof(int) * blocks_offsets.n_elem));
+      cudaMalloc(&dev_block_offsets, sizeof(uint32_t) * blocks_offsets.n_elem));
   util::arma_to_cuda(dev_block_offsets, blocks_offsets);
 
   const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions,
@@ -88,38 +88,43 @@ reshape(T * dest_data,
   const arma::uvec dest_index_table = torque::util::generate_index_table(
       padded_dest_dimensions);
 
-  int * dev_dest_index_table;
+  uint32_t * dev_dest_index_table;
   gpuErrchk(
-      cudaMalloc(&dev_dest_index_table, sizeof(int) * dest_index_table.n_elem));
+      cudaMalloc(&dev_dest_index_table, sizeof(uint32_t) * dest_index_table.n_elem));
   util::arma_to_cuda(dev_dest_index_table,
-                     arma::conv_to<arma::Col<int>>::from(
+                     arma::conv_to<arma::Col<uint32_t>>::from(
                          arma::vectorise(dest_index_table)));
 
   const arma::uvec n_elem_nest_sum =
       arma::cumsum(arma::prod(blocks_dimensions).t()) -
       arma::prod(blocks_dimensions).t();
+
   const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
 
-  int * n_elem_nest_sum_dev;
+  uint32_t * n_elem_nest_sum_dev;
   gpuErrchk(
-      cudaMalloc(&n_elem_nest_sum_dev, sizeof(int) * n_elem_nest_sum.n_elem));
+      cudaMalloc(&n_elem_nest_sum_dev, sizeof(uint32_t) * n_elem_nest_sum.n_elem));
   util::arma_to_cuda(n_elem_nest_sum_dev, n_elem_nest_sum);
 
-  dim3 blockSize(256);
-  dim3 gridSize(n_elem / 256 + 1);
+  uint threads_per_block = 1024;
+  uint blocks = n_elem / 1024 + 1;
 
-  reshape_kernel<T, reverse><<<blockSize, gridSize>>>(
+  cudaDeviceSynchronize();
+
+  reshape_kernel<T, reverse><<<blocks, threads_per_block>>>(
       src_data,
       dev_block_index_tables,
       dev_blocks_strides,
       dev_block_offsets,
       n_elem_nest_sum_dev,
-      (int) n_blocks,
-      (int) n_elem,
-      (int) rank,
+      n_blocks,
+      n_elem,
+      rank,
       dev_dest_index_table,
       dest_data
   );
+
+  cudaDeviceSynchronize();
 
   gpuErrchk(cudaFree(dev_block_index_tables));
   gpuErrchk(cudaFree(dev_blocks_strides));
@@ -822,10 +827,11 @@ public:
         gpuErrchk(cudaMalloc(&A_transposed_pointer,
                              arma::prod(padded_A_block_max_dimension) *
                              sizeof(T)));
-        cuttCheck(cuttPlan(&planA, A_cutt_rank,
+
+        cuttCheck(cuttPlanMeasure(&planA, A_cutt_rank,
                            A_dim_in_cutt.data(),
                            A_permutation_in_cutt.data(),
-                           sizeof(T), 0));
+                           sizeof(T), 0, A_copies, A_transposed_pointer));
 
         cuttCheck(cuttExecute(planA, A_copies, A_transposed_pointer));
 
@@ -838,10 +844,12 @@ public:
         gpuErrchk(cudaMalloc(&B_transposed_pointer,
                              arma::prod(padded_B_block_max_dimension) *
                              sizeof(T)));
-        cuttCheck(cuttPlan(&planB, B_cutt_rank,
+
+        cuttCheck(cuttPlanMeasure(&planB, B_cutt_rank,
                            B_dim_in_cutt.data(),
                            B_permutation_in_cutt.data(),
-                           sizeof(T), 0));
+                           sizeof(T), 0, B_copies, B_transposed_pointer));
+
 
         cuttCheck(cuttExecute(planB, B_copies, B_transposed_pointer));
 
@@ -1052,10 +1060,10 @@ public:
 
     cuttHandle plan;
 
-    cuttCheck(cuttPlan(&plan, cutt_rank,
+    cuttCheck(cuttPlanMeasure(&plan, cutt_rank,
                        dim_in_cutt.data(),
                        permutation_in_cutt.data(),
-                       sizeof(T), 0));
+                       sizeof(T), 0, workspace, new_data));
 
     cuttCheck(cuttExecute(plan, workspace, new_data));
 

@@ -35,7 +35,8 @@ TEST_CASE("Block-sparse n_blocks test") {
 
   std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
   const arma::uvec lengths{4, 8, 16, 32, 64, 128};
-  const arma::uvec power{2, 3, 4, 5, 6, 7};
+  const arma::uvec power{2, 3, 4, 5, 5, 5};
+
   SECTION("3-rank tensor - matrix contraction") {
 
     std::cout << "--- 3-rank tensor - matrix contraction ---" << std::endl;
