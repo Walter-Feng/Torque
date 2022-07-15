@@ -455,9 +455,6 @@ public:
     const arma::uword this_leading_dim = arma::prod(this->dimension) / contracting_n_elem;
     const arma::uword that_leading_dim = arma::prod(tensor.dimension) / contracting_n_elem;
 
-    cublasHandle_t handle;
-    cublasCreate(&handle);
-
     const T * this_pointer = this_transposed.has_value() ?
                              thrust::raw_pointer_cast(this_transposed.value().data.data()) :
                              thrust::raw_pointer_cast(this->data.data()) ;
@@ -469,7 +466,7 @@ public:
     T * out_pointer = thrust::raw_pointer_cast(result.data());
 
     if constexpr(std::is_same<T, float>::value) {
-        cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T,
+        cublasSgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T,
                     this_leading_dim, that_leading_dim, contracting_n_elem, &one,
                     this_pointer, this_leading_dim,
                     that_pointer, that_leading_dim,
@@ -477,7 +474,7 @@ public:
     }
 
     if constexpr(std::is_same<T, double>::value) {
-        cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T,
+        cublasDgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T,
                     this_leading_dim, that_leading_dim, contracting_n_elem, &one,
                     this_pointer, this_leading_dim,
                     that_pointer, that_leading_dim,
@@ -485,7 +482,7 @@ public:
     }
 
     if constexpr(std::is_same<T, half>::value) {
-        cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T,
+        cublasHgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T,
                     this_leading_dim, that_leading_dim, contracting_n_elem, &one,
                     this_pointer, this_leading_dim,
                     that_pointer, that_leading_dim,

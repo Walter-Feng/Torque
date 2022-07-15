@@ -556,7 +556,7 @@ public:
   /// \param contracting_indices the corresponding two indices for the dimensions to contract
   /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
   BlockSparseTensor<T>
-  contract(cublasHandle_t & handle,
+  contract(cublasHandle_t handle,
            const BlockSparseTensor<T> & tensor,
            const arma::umat & contracting_indices) const {
 
