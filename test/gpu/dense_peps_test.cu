@@ -8,6 +8,9 @@
 
 TEST_CASE("PEPS practial tensor") {
 
+  cublasHandle_t handle;
+  cublasCreate(&handle);
+
   SECTION("large tensor - matrix contraction") {
 
     cudaEvent_t start;
@@ -799,9 +802,6 @@ TEST_CASE("PEPS practial tensor") {
     cudaProfilerStart();
 
 
-    cublasHandle_t handle;
-    cublasCreate(&handle);
-
 #define START_TIMER() {               \
       cudaEventCreate(&start);      \
       cudaEventCreate(&stop);       \
@@ -819,7 +819,7 @@ TEST_CASE("PEPS practial tensor") {
 
     START_TIMER();
 
-    const auto contraction = tensor_format.contract(matrix_in_tensor,
+    const auto contraction = tensor_format.contract(handle, matrix_in_tensor,
                                                     arma::umat{{0, 0},
                                                                {1, 1}});
 
@@ -828,10 +828,11 @@ TEST_CASE("PEPS practial tensor") {
     std::cout << "GPU time (dense contraction): " <<
               gpu_time_contraction << " milliseconds" << std::endl;
 
-    cublasDestroy(handle);
 
     cudaProfilerStop();
 
 
   }
+
+  cublasDestroy(handle);
 }

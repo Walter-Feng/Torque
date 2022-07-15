@@ -27,6 +27,9 @@
 
 TEST_CASE("Block-sparse n_blocks test") {
 
+  cublasHandle_t handle;
+  cublasCreate(&handle);
+
   // (From Eric's code)
   cudaEvent_t start;
   cudaEvent_t stop;
@@ -58,7 +61,7 @@ TEST_CASE("Block-sparse n_blocks test") {
                                                   arma::uvec{1, 1});
 
     START_TIMER();
-    const auto contraction = tensor.contract(matrix, {{1, 1}, {2, 0}});
+    const auto contraction = tensor.contract(handle, matrix, {{1, 1}, {2, 0}});
     STOP_RECORD_TIMER(gpu_time_contraction);
 
     std::cout << "single element ref: " << gpu_time_contraction << std::endl;
@@ -98,7 +101,7 @@ TEST_CASE("Block-sparse n_blocks test") {
         }
 
         START_TIMER();
-        const auto contraction = sliced_tensor.contract(sliced_matrix,
+        const auto contraction = sliced_tensor.contract(handle, sliced_matrix,
                                                         {{1, 1},
                                                          {2, 0}});
         STOP_RECORD_TIMER(gpu_time_contraction);
@@ -112,6 +115,8 @@ TEST_CASE("Block-sparse n_blocks test") {
 
   std::cout << std::endl;
   std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
+
+  cublasDestroy(handle);
 }
 
 TEST_CASE("Scaling test") {
@@ -129,6 +134,8 @@ TEST_CASE("Scaling test") {
   SECTION("3-rank tensor - matrix contraction") {
 
   }
+
+  cublasDestroy(handle);
 
 
 }

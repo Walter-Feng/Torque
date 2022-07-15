@@ -5,6 +5,10 @@
 #include "gpu/dense.cuh"
 
 TEST_CASE("dense tensor operation") {
+
+  cublasHandle_t handle;
+  cublasCreate(&handle);
+
   SECTION("dense matrix initialization") {
     const int rank = 2; // Matrix
     const arma::uvec dimension = {4, 3}; // 4x3 matrix
@@ -108,7 +112,7 @@ TEST_CASE("dense tensor operation") {
 
     const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {5});
     const auto result =
-        tensor_format.contract(tensor_format, arma::umat({0, 0}));
+        tensor_format.contract(handle, tensor_format, arma::umat({0, 0}));
 
     assert(result.to_number() == 30);
   }
@@ -118,7 +122,7 @@ TEST_CASE("dense tensor operation") {
 
     const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {3, 3});
 
-    const auto A_squared = tensor_format.contract(tensor_format,
+    const auto A_squared = tensor_format.contract(handle, tensor_format,
                                                   arma::umat({1, 0}));
 
     const arma::mat ref_A = arma::mat{{0, 1, 2},
@@ -140,7 +144,7 @@ TEST_CASE("dense tensor operation") {
     const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {3, 3});
 
     const auto A_squared =
-        tensor_format.contract(tensor_format,
+        tensor_format.contract(handle, tensor_format,
                                arma::umat({{1, 0},
                                            {0, 1}}));
 
@@ -163,7 +167,7 @@ TEST_CASE("dense tensor operation") {
 
     const torque::gpu::DenseTensor<float> vector_in_tensor(vector.data(), {2});
 
-    const auto contraction = tensor_format.contract(vector_in_tensor,
+    const auto contraction = tensor_format.contract(handle, vector_in_tensor,
                                                     arma::umat{{0, 0}});
 
     CHECK(contraction.query({0, 0}) == 2);
@@ -171,7 +175,7 @@ TEST_CASE("dense tensor operation") {
     CHECK(contraction.query({0, 1}) == 14);
     CHECK(contraction.query({1, 1}) == 20);
 
-    const auto contraction_2 = tensor_format.contract(vector_in_tensor,
+    const auto contraction_2 = tensor_format.contract(handle, vector_in_tensor,
                                                       arma::umat{{1, 0}});
 
     CHECK(contraction_2.query({0, 0}) == 4);
@@ -179,7 +183,7 @@ TEST_CASE("dense tensor operation") {
     CHECK(contraction_2.query({0, 1}) == 16);
     CHECK(contraction_2.query({1, 1}) == 19);
 
-    const auto contraction_3 = tensor_format.contract(vector_in_tensor,
+    const auto contraction_3 = tensor_format.contract(handle, vector_in_tensor,
                                                       arma::umat{{2, 0}});
 
     CHECK(contraction_3.query({1, 0}) == 11);
@@ -197,7 +201,7 @@ TEST_CASE("dense tensor operation") {
     const torque::gpu::DenseTensor<float> matrix_in_tensor(matrix.data(), {2,
                                                                            2}); // row vector
 
-    const auto contraction = tensor_format.contract(matrix_in_tensor,
+    const auto contraction = tensor_format.contract(handle, matrix_in_tensor,
                                                     arma::umat{{0, 1},
                                                                {1, 0}});
 
@@ -206,4 +210,5 @@ TEST_CASE("dense tensor operation") {
     CHECK(contraction.query({2}) == 99);
   }
 
+  cublasDestroy(handle);
 }

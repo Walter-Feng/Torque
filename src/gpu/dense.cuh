@@ -224,7 +224,8 @@ public:
   /// \param contracting_indices the corresponding two indices for the dimensions to contract
   /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
   DenseTensor<T>
-  contract(const DenseTensor<T> & tensor,
+  contract(cublasHandle_t cublas_handle,
+           const DenseTensor<T> & tensor,
            const arma::umat & contracting_indices) const {
 
     T one = 1;
@@ -490,8 +491,6 @@ public:
                     that_pointer, that_leading_dim,
                     &zero, out_pointer, this_leading_dim);
     }
-
-    cublasDestroy(handle);
 
 #endif
 

@@ -71,7 +71,8 @@ reshape(T * dest_data,
 
   uint32_t * dev_blocks_strides;
   gpuErrchk(
-      cudaMalloc(&dev_blocks_strides, sizeof(uint32_t) * blocks_strides.n_elem));
+      cudaMalloc(&dev_blocks_strides,
+                 sizeof(uint32_t) * blocks_strides.n_elem));
   util::arma_to_cuda(dev_blocks_strides,
                      arma::conv_to<arma::Col<uint32_t>>::from(
                          arma::vectorise(blocks_strides)));
@@ -90,7 +91,8 @@ reshape(T * dest_data,
 
   uint32_t * dev_dest_index_table;
   gpuErrchk(
-      cudaMalloc(&dev_dest_index_table, sizeof(uint32_t) * dest_index_table.n_elem));
+      cudaMalloc(&dev_dest_index_table,
+                 sizeof(uint32_t) * dest_index_table.n_elem));
   util::arma_to_cuda(dev_dest_index_table,
                      arma::conv_to<arma::Col<uint32_t>>::from(
                          arma::vectorise(dest_index_table)));
@@ -103,7 +105,8 @@ reshape(T * dest_data,
 
   uint32_t * n_elem_nest_sum_dev;
   gpuErrchk(
-      cudaMalloc(&n_elem_nest_sum_dev, sizeof(uint32_t) * n_elem_nest_sum.n_elem));
+      cudaMalloc(&n_elem_nest_sum_dev,
+                 sizeof(uint32_t) * n_elem_nest_sum.n_elem));
   util::arma_to_cuda(n_elem_nest_sum_dev, n_elem_nest_sum);
 
   uint threads_per_block = 1024;
@@ -553,7 +556,8 @@ public:
   /// \param contracting_indices the corresponding two indices for the dimensions to contract
   /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
   BlockSparseTensor<T>
-  contract(const BlockSparseTensor<T> & tensor,
+  contract(cublasHandle_t & handle,
+           const BlockSparseTensor<T> & tensor,
            const arma::umat & contracting_indices) const {
 
 //            cudaStream_t stream1, stream2;
@@ -650,9 +654,6 @@ public:
     if (non_trivial_A_block_indices.empty()) {
       return BlockSparseTensor<T>(new_dimension);
     }
-
-    cublasHandle_t handle;
-    cublasCreate(&handle);
 
     arma::umat new_blocks_dimensions =
         total_end_points - total_begin_points +
@@ -829,9 +830,10 @@ public:
                              sizeof(T)));
 
         cuttCheck(cuttPlanMeasure(&planA, A_cutt_rank,
-                           A_dim_in_cutt.data(),
-                           A_permutation_in_cutt.data(),
-                           sizeof(T), 0, A_copies, A_transposed_pointer));
+                                  A_dim_in_cutt.data(),
+                                  A_permutation_in_cutt.data(),
+                                  sizeof(T), 0, A_copies,
+                                  A_transposed_pointer));
 
         cuttCheck(cuttExecute(planA, A_copies, A_transposed_pointer));
 
@@ -846,9 +848,10 @@ public:
                              sizeof(T)));
 
         cuttCheck(cuttPlanMeasure(&planB, B_cutt_rank,
-                           B_dim_in_cutt.data(),
-                           B_permutation_in_cutt.data(),
-                           sizeof(T), 0, B_copies, B_transposed_pointer));
+                                  B_dim_in_cutt.data(),
+                                  B_permutation_in_cutt.data(),
+                                  sizeof(T), 0, B_copies,
+                                  B_transposed_pointer));
 
 
         cuttCheck(cuttExecute(planB, B_copies, B_transposed_pointer));
@@ -991,8 +994,6 @@ public:
       }
     }
 
-    cublasDestroy(handle);
-
     if (result_rank == 0) {
       gpuErrchk(cudaFree(dot_temp));
     }
@@ -1061,9 +1062,9 @@ public:
     cuttHandle plan;
 
     cuttCheck(cuttPlanMeasure(&plan, cutt_rank,
-                       dim_in_cutt.data(),
-                       permutation_in_cutt.data(),
-                       sizeof(T), 0, workspace, new_data));
+                              dim_in_cutt.data(),
+                              permutation_in_cutt.data(),
+                              sizeof(T), 0, workspace, new_data));
 
     cuttCheck(cuttExecute(plan, workspace, new_data));
 
@@ -1108,7 +1109,8 @@ public:
 
     const arma::umat sub_blocks = blocks_dimension.each_col() / divisor;
 
-    const arma::uvec divisor_table = torque::util::generate_index_table(divisor);
+    const arma::uvec divisor_table = torque::util::generate_index_table(
+        divisor);
 
     const arma::uword n_sub_blocks = arma::prod(divisor);
 
@@ -1154,7 +1156,7 @@ public:
     return BlockSparseTensor<T>(this->data, new_begin_points, new_end_points,
                                 dimension, cudaMemcpyDeviceToDevice);
 
-    }
+  }
 
 protected:
   /// Stores data
