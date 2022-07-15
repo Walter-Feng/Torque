@@ -204,10 +204,4 @@ TEST_CASE("dense tensor operation") {
     CHECK(contraction.query({2}) == 99);
   }
 
-  SECTION("arma playground") {
-    const arma::uvec a{1, 2, 3, 4, 5};
-
-    arma::cumsum(a).print("test");
-  }
-
 }
