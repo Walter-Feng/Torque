@@ -667,11 +667,11 @@ public:
     }
 
 
-    const arma::uvec n_elem_wrt_A_block_in_uvec = arma::uvec(n_elem_wrt_A_block);
-    const arma::uvec offsets_wrt_A_blocks =
+    arma::uvec n_elem_wrt_A_block_in_uvec = arma::uvec(n_elem_wrt_A_block);
+    arma::uvec offsets_wrt_A_blocks =
         arma::cumsum(n_elem_wrt_A_block_in_uvec) - n_elem_wrt_A_block_in_uvec;
-    const arma::uvec new_blocks_n_elem = arma::prod(new_blocks_dimensions).t();
-    const arma::uvec new_blocks_offsets = torque::util::nest_sum(new_blocks_n_elem);
+    arma::uvec new_blocks_n_elem = arma::prod(new_blocks_dimensions).t();
+    arma::uvec new_blocks_offsets = torque::util::nest_sum(new_blocks_n_elem);
 
     // temporary variable for dot operation (i.e. result.rank == 0)
     T * result_data;
