@@ -280,6 +280,8 @@ public:
 
 #ifdef USE_CUTENSOR
 
+    std::cout << "Using cutensor" << std::endl;
+
     auto compute_type = cutensor_compute_type<T>();
     auto data_type = cutensor_data_type<T>();
 
