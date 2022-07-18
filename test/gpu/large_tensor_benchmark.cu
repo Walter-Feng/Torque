@@ -272,6 +272,146 @@ TEST_CASE("Block-sparse n_blocks test") {
   cublasDestroy(handle);
 }
 
+#ifdef USE_CUTENSOR
+TEST_CASE("Dense Tensor Scaling test") {
+
+  // (From Eric's code)
+  cudaEvent_t start;
+  cudaEvent_t stop;
+
+  float gpu_time_contraction = -1;
+
+  std::cout << "--------- Dense Tensor Scaling test ---------" << std::endl;
+
+  cutensorHandle_t handle;
+  cutensorInit(&handle);
+
+  const arma::uvec lengths{2, 4, 8, 16, 32, 64};
+
+  SECTION("Matrix multiplication") {
+
+    std::cout << "--- Matrix multiplication ---" << std::endl;
+
+    for (int i = 0; i < lengths.n_elem; i++) {
+
+      std::cout << std::endl;
+      std::cout << "contraction with unit length " << lengths(i) << std::endl;
+
+      const arma::uword length = lengths(i);
+
+      std::vector<double> tensor_data =
+          arma::conv_to<std::vector<double>>::from(
+              arma::randu<arma::vec>(length * length));
+
+      std::vector<double> matrix_data =
+          arma::conv_to<std::vector<double>>::from(
+              arma::randu<arma::vec>(length * length));
+
+      const torque::gpu::DenseTensor<double>
+          chunk_tensor(tensor_data.data(), arma::uvec{length, length});
+
+      const torque::gpu::DenseTensor<double>
+          chunk_matrix(matrix_data.data(), arma::uvec{length, length});
+
+
+      START_TIMER();
+      const auto contraction = chunk_tensor.contract(&handle, chunk_matrix,
+                                                     {{1, 0}});
+      STOP_RECORD_TIMER(gpu_time_contraction);
+
+      std::cout << "dense contraction time consumed: "
+                << gpu_time_contraction << std::endl;
+
+
+    }
+
+  }
+
+  SECTION("3-rank tensor - matrix contraction") {
+
+    std::cout << "--- 3-rank tensor - matrix contraction ---" << std::endl;
+
+    for (int i = 0; i < lengths.n_elem; i++) {
+
+      std::cout << std::endl;
+      std::cout << "contraction with unit length " << lengths(i) << std::endl;
+
+      const arma::uword length = lengths(i);
+
+      std::vector<double> tensor_data =
+          arma::conv_to<std::vector<double>>::from(
+              arma::randu<arma::vec>(length * length * length));
+
+      std::vector<double> matrix_data =
+          arma::conv_to<std::vector<double>>::from(
+              arma::randu<arma::vec>(length * length));
+
+      const torque::gpu::DenseTensor<double>
+          chunk_tensor(tensor_data.data(), arma::uvec{length, length, length});
+
+      const torque::gpu::DenseTensor<double>
+          chunk_matrix(matrix_data.data(), arma::uvec{length, length});
+
+
+      START_TIMER();
+      const auto contraction = chunk_tensor.contract(&handle, chunk_matrix,
+                                                     {{1, 1},
+                                                      {2, 0}});
+      STOP_RECORD_TIMER(gpu_time_contraction);
+
+      std::cout << "dense contraction time consumed: "
+                << gpu_time_contraction << std::endl;
+
+
+    }
+  }
+
+  SECTION("4-rank tensor - matrix contraction") {
+
+    std::cout << "--- 4-rank tensor - matrix contraction ---" << std::endl;
+
+    for (int i = 0; i < lengths.n_elem; i++) {
+
+      std::cout << std::endl;
+      std::cout << "contraction with unit length " << lengths(i) << std::endl;
+
+      const arma::uword length = lengths(i);
+
+      std::vector<double> tensor_data =
+          arma::conv_to<std::vector<double>>::from(
+              arma::randu<arma::vec>(length * length * length * length));
+
+      std::vector<double> matrix_data =
+          arma::conv_to<std::vector<double>>::from(
+              arma::randu<arma::vec>(length * length));
+
+      const torque::gpu::DenseTensor<double>
+          chunk_tensor(tensor_data.data(),
+                       arma::uvec{length, length, length, length});
+
+      const torque::gpu::DenseTensor<double>
+          chunk_matrix(matrix_data.data(), arma::uvec{length, length});
+
+
+      START_TIMER();
+      const auto contraction = chunk_tensor.contract(&handle, chunk_matrix,
+                                                     {{1, 1},
+                                                      {2, 0}});
+      STOP_RECORD_TIMER(gpu_time_contraction);
+
+      std::cout << "dense contraction time consumed: "
+                << gpu_time_contraction << std::endl;
+
+
+    }
+
+  }
+
+  std::cout << std::endl;
+  std::cout << "--------- Dense Tensor Scaling test ---------" << std::endl;
+}
+#else
+
 TEST_CASE("Dense Tensor Scaling test") {
 
   // (From Eric's code)
@@ -411,6 +551,8 @@ TEST_CASE("Dense Tensor Scaling test") {
   cublasDestroy(handle);
 
 }
+
+#endif
 
 TEST_CASE("Sparse Tensor Scaling test") {
 

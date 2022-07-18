@@ -6,9 +6,6 @@
 
 TEST_CASE("dense tensor operation") {
 
-  cublasHandle_t handle;
-  cublasCreate(&handle);
-
   SECTION("dense matrix initialization") {
     const int rank = 2; // Matrix
     const arma::uvec dimension = {4, 3}; // 4x3 matrix
@@ -106,6 +103,118 @@ TEST_CASE("dense tensor operation") {
     CHECK(tensor.query({}) == 1);
 
   }
+
+#ifdef USE_CUTENSOR
+
+  cutensorHandle_t handle;
+  cutensorInit(&handle);
+
+  SECTION("vector contraction") {
+    const std::vector<float> vec{0, 1, 2, 3, 4};
+
+    const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {5});
+    const auto result =
+        tensor_format.contract(&handle, tensor_format, arma::umat({0, 0}));
+
+    assert(result.to_number() == 30);
+  }
+
+  SECTION("matrix multiplication") {
+    const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
+
+    const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {3, 3});
+
+    const auto A_squared = tensor_format.contract(&handle, tensor_format,
+                                                  arma::umat({1, 0}));
+
+    const arma::mat ref_A = arma::mat{{0, 1, 2},
+                                      {3, 4, 5},
+                                      {6, 7, 8}}.t();
+
+    const arma::mat ref_A_squared = ref_A * ref_A;
+
+    for (arma::uword i = 0; i < 3; i++) {
+      for (arma::uword j = 0; j < 3; j++) {
+        CHECK(A_squared.query(arma::uvec{i, j}) == ref_A_squared(i, j));
+      }
+    }
+  }
+
+  SECTION("matrix inner product") {
+    const std::vector<float> vec{0, 1, 2, 3, 4, 5, 6, 7, 8};
+
+    const torque::gpu::DenseTensor<float> tensor_format(vec.data(), {3, 3});
+
+    const auto A_squared =
+        tensor_format.contract(&handle, tensor_format,
+                               arma::umat({{1, 0},
+                                           {0, 1}}));
+
+    const arma::mat ref_A = arma::mat{{0, 1, 2},
+                                      {3, 4, 5},
+                                      {6, 7, 8}}.t();
+
+    const double result = arma::accu(ref_A % ref_A.t());
+
+    CHECK(A_squared.to_number() == result);
+  }
+
+  SECTION("tensor-vector contraction") {
+    const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7};
+
+    const torque::gpu::DenseTensor<float> tensor_format(tensor_data.data(),
+                                                        {2, 2, 2});
+
+    const std::vector<float> vector{1, 2};
+
+    const torque::gpu::DenseTensor<float> vector_in_tensor(vector.data(), {2});
+
+    const auto contraction = tensor_format.contract(&handle, vector_in_tensor,
+                                                    arma::umat{{0, 0}});
+
+    CHECK(contraction.query({0, 0}) == 2);
+    CHECK(contraction.query({1, 0}) == 8);
+    CHECK(contraction.query({0, 1}) == 14);
+    CHECK(contraction.query({1, 1}) == 20);
+
+    const auto contraction_2 = tensor_format.contract(&handle, vector_in_tensor,
+                                                      arma::umat{{1, 0}});
+
+    CHECK(contraction_2.query({0, 0}) == 4);
+    CHECK(contraction_2.query({1, 0}) == 7);
+    CHECK(contraction_2.query({0, 1}) == 16);
+    CHECK(contraction_2.query({1, 1}) == 19);
+
+    const auto contraction_3 = tensor_format.contract(&handle, vector_in_tensor,
+                                                      arma::umat{{2, 0}});
+
+    CHECK(contraction_3.query({1, 0}) == 11);
+
+  }
+
+  SECTION("tensor-matrix contraction") {
+    const std::vector<float> tensor_data{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+    const torque::gpu::DenseTensor<float> tensor_format(tensor_data.data(),
+                                                        {2, 2, 3});
+
+    const std::vector<float> matrix{1, 2, 3, 4};
+
+    const torque::gpu::DenseTensor<float> matrix_in_tensor(matrix.data(), {2,
+                                                                           2}); // row vector
+
+    const auto contraction = tensor_format.contract(&handle, matrix_in_tensor,
+                                                    arma::umat{{0, 1},
+                                                               {1, 0}});
+
+    CHECK(contraction.query({0}) == 19);
+    CHECK(contraction.query({1}) == 59);
+    CHECK(contraction.query({2}) == 99);
+  }
+
+#else
+  cublasHandle_t handle;
+  cublasCreate(&handle);
 
   SECTION("vector contraction") {
     const std::vector<float> vec{0, 1, 2, 3, 4};
@@ -211,4 +320,6 @@ TEST_CASE("dense tensor operation") {
   }
 
   cublasDestroy(handle);
+
+#endif
 }
