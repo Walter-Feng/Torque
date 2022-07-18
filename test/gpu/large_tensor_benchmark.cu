@@ -96,8 +96,11 @@ TEST_CASE("Block-sparse n_blocks test") {
         auto sliced_matrix = chunk_matrix;
 
         for (int k = 0; k < j; k++) {
+          DEBUG(1)
           sliced_tensor = sliced_tensor.slice({2, 2});
+          DEBUG(2)
           sliced_matrix = sliced_matrix.slice({2, 2});
+          DEBUG(3)
         }
 
         START_TIMER();
@@ -288,24 +291,6 @@ TEST_CASE("Dense Tensor Scaling test") {
 
     std::cout << "--- Matrix multiplication ---" << std::endl;
 
-    std::vector<double> tensor_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
-
-    std::vector<double> matrix_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
-
-    torque::gpu::DenseTensor<double> tensor(tensor_data.data(),
-                                            arma::uvec{1, 1});
-
-    torque::gpu::DenseTensor<double> matrix(matrix_data.data(),
-                                            arma::uvec{1, 1});
-
-    START_TIMER();
-    const auto contraction = tensor.contract(handle, matrix, {{1, 0}});
-    STOP_RECORD_TIMER(gpu_time_contraction);
-
-    std::cout << "single element ref: " << gpu_time_contraction << std::endl;
-
     for (int i = 0; i < lengths.n_elem; i++) {
 
       std::cout << std::endl;
@@ -345,25 +330,6 @@ TEST_CASE("Dense Tensor Scaling test") {
 
     std::cout << "--- 3-rank tensor - matrix contraction ---" << std::endl;
 
-    std::vector<double> tensor_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
-
-    std::vector<double> matrix_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
-
-    torque::gpu::DenseTensor<double> tensor(tensor_data.data(),
-                                            arma::uvec{1, 1, 1});
-
-    torque::gpu::DenseTensor<double> matrix(matrix_data.data(),
-                                            arma::uvec{1, 1});
-
-    START_TIMER();
-    const auto contraction = tensor.contract(handle, matrix, {{1, 1},
-                                                              {2, 0}});
-    STOP_RECORD_TIMER(gpu_time_contraction);
-
-    std::cout << "single element ref: " << gpu_time_contraction << std::endl;
-
     for (int i = 0; i < lengths.n_elem; i++) {
 
       std::cout << std::endl;
@@ -402,26 +368,6 @@ TEST_CASE("Dense Tensor Scaling test") {
   SECTION("4-rank tensor - matrix contraction") {
 
     std::cout << "--- 4-rank tensor - matrix contraction ---" << std::endl;
-
-    std::vector<double> tensor_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
-
-    std::vector<double> matrix_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
-
-    torque::gpu::DenseTensor<double> tensor(tensor_data.data(),
-                                            arma::uvec{1, 1, 1, 1});
-
-    torque::gpu::DenseTensor<double> matrix(matrix_data.data(),
-                                            arma::uvec{1, 1});
-
-    START_TIMER();
-    const auto contraction = tensor.contract(handle, matrix,
-                                             {{1, 1},
-                                              {2, 0}});
-    STOP_RECORD_TIMER(gpu_time_contraction);
-
-    std::cout << "single element ref: " << gpu_time_contraction << std::endl;
 
     for (int i = 0; i < lengths.n_elem; i++) {
 

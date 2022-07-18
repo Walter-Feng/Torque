@@ -1,6 +1,7 @@
-
 #ifndef TORQUE_GPU_LIB_HELPER_CUH
 #define TORQUE_GPU_LIB_HELPER_CUH
+
+#define DEBUG(x) do { printf("bug marker %d \n", x); } while (0) ;
 
 static const char * _cudaGetErrorEnum(cublasStatus_t error) {
   switch (error) {
