@@ -51,7 +51,7 @@ class DenseTensor {
 public:
 
   /// The rank of the tensor
-  arma::uword rank{};
+  arma::uword rank;
 
   /// The dimensions at each index of the tensor. The first index is the leading dimension of the
   /// tensor with stride equal to 1, i.e. difference of 1 for the first index will result in
