@@ -688,6 +688,7 @@ public:
     }
 
 
+#pragma acc kernels
     for (arma::uword non_trivial_i = 0;
          non_trivial_i < contraction_infos.size(); non_trivial_i++) {
 
