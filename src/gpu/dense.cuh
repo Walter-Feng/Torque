@@ -23,32 +23,6 @@
 namespace torque {
 namespace gpu {
 
-#ifdef USE_CUTENSOR
-
-template<typename T>
-cutensorComputeType_t cutensor_compute_type() {
-  if constexpr(std::is_same<T, float>::value) {
-    return CUTENSOR_COMPUTE_32F;
-  } else if constexpr(std::is_same<T, double>::value) {
-    return CUTENSOR_COMPUTE_64F;
-  } else if constexpr(std::is_same<T, half>::value) {
-    return CUTENSOR_COMPUTE_16F;
-  }
-}
-
-template<typename T>
-cudaDataType_t cutensor_data_type() {
-  if constexpr(std::is_same<T, float>::value) {
-    return CUDA_R_32F;
-  } else if constexpr(std::is_same<T, double>::value) {
-    return CUDA_R_64F;
-  } else if constexpr(std::is_same<T, half>::value) {
-    return CUDA_R_16F;
-  }
-}
-
-#endif
-
 template<typename T>
 class DenseTensor {
 public:
@@ -260,31 +234,23 @@ public:
 
     auto result = thrust::device_vector<T>(arma::prod(new_dimension));
 
-    auto this_dim = std::vector<int64_t>(this->rank);
-    auto this_table = std::vector<int64_t>(this->rank);
+    const auto this_dim = arma::conv_to<std::vector<int64_t>>::from(
+        this->dimension);
+    const auto this_table = arma::conv_to<std::vector<int64_t>>::from(
+        this->index_table);
 
-    for (arma::uword i = 0; i < this->rank; i++) {
-      this_dim[i] = this->dimension(i);
-      this_table[i] = this->index_table(i);
-    }
+    const auto that_dim = arma::conv_to<std::vector<int64_t>>::from(
+        tensor.dimension);
+    const auto that_table = arma::conv_to<std::vector<int64_t>>::from(
+        tensor.index_table);
 
-    auto that_dim = std::vector<int64_t>(tensor.rank);
-    auto that_table = std::vector<int64_t>(tensor.rank);
+    const auto result_dim = arma::conv_to<std::vector<int64_t>>::from(
+        new_dimension);
+    const auto result_table = arma::conv_to<std::vector<int64_t>>::from(
+        new_dimension_table);
 
-    for (arma::uword i = 0; i < tensor.rank; i++) {
-      that_dim[i] = tensor.dimension(i);
-      that_table[i] = tensor.index_table(i);
-    }
-
-    auto result_dim = std::vector<int64_t>(new_dimension.n_elem);
-    auto result_table = std::vector<int64_t>(new_dimension.n_elem);
-    for (arma::uword i = 0; i < new_dimension.n_elem; i++) {
-      result_dim[i] = new_dimension(i);
-      result_table[i] = new_dimension_table(i);
-    }
-
-    auto compute_type = cutensor_compute_type<T>();
-    auto data_type = cutensor_data_type<T>();
+    const auto compute_type = cutensor_compute_type<T>();
+    const auto data_type = cutensor_data_type<T>();
 
     cutensorTensorDescriptor_t this_descriptor;
 
