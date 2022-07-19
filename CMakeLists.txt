@@ -280,6 +280,12 @@ if (USE_GPU)
             )
 
     target_link_libraries(large_tensor_benchmark catch2 torque gpu_torque)
+
+    add_executable(block_sparse_benchmark
+            test/gpu/block_sparse_benchmark.cu
+            )
+
+    target_link_libraries(block_sparse_benchmark catch2 torque gpu_torque)
 endif ()
 
 
