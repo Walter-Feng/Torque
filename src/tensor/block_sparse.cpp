@@ -160,16 +160,7 @@ block_in_range(const arma::umat & contracting_indices,
     };
 
   } else {
-    return {arma::uvec{},
-            arma::umat{},
-            arma::umat{},
-            arma::umat{},
-            arma::umat{},
-            arma::umat{},
-            arma::umat{},
-            arma::umat{},
-            arma::umat{},
-            arma::umat{}};
+    return {};
   }
 
 }

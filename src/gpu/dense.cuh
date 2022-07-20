@@ -23,32 +23,6 @@
 namespace torque {
 namespace gpu {
 
-#ifdef USE_CUTENSOR
-
-template<typename T>
-cutensorComputeType_t cutensor_compute_type() {
-  if constexpr(std::is_same<T, float>::value) {
-    return CUTENSOR_COMPUTE_32F;
-  } else if constexpr(std::is_same<T, double>::value) {
-    return CUTENSOR_COMPUTE_64F;
-  } else if constexpr(std::is_same<T, half>::value) {
-    return CUTENSOR_COMPUTE_16F;
-  }
-}
-
-template<typename T>
-cudaDataType_t cutensor_data_type() {
-  if constexpr(std::is_same<T, float>::value) {
-    return CUDA_R_32F;
-  } else if constexpr(std::is_same<T, double>::value) {
-    return CUDA_R_64F;
-  } else if constexpr(std::is_same<T, half>::value) {
-    return CUDA_R_16F;
-  }
-}
-
-#endif
-
 template<typename T>
 class DenseTensor {
 public:
@@ -425,6 +399,8 @@ public:
     if (err != CUTENSOR_STATUS_SUCCESS) {
       printf("ERROR: %s\n", cutensorGetErrorString(err));
     }
+
+    if ( work ) cudaFree( work );
 
     return DenseTensor<T>(std::move(result), new_dimension);
 

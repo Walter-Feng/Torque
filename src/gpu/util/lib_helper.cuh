@@ -76,4 +76,31 @@ gpuAssert(cudaError_t code, const char * file, int line, bool abort = true) {
   }
 }
 
+#ifdef USE_CUTENSOR
+
+#include <cutensor.h>
+
+template<typename T>
+cutensorComputeType_t cutensor_compute_type() {
+  if constexpr(std::is_same<T, float>::value) {
+    return CUTENSOR_COMPUTE_32F;
+  } else if constexpr(std::is_same<T, double>::value) {
+    return CUTENSOR_COMPUTE_64F;
+  } else if constexpr(std::is_same<T, half>::value) {
+    return CUTENSOR_COMPUTE_16F;
+  }
+}
+
+template<typename T>
+cudaDataType_t cutensor_data_type() {
+  if constexpr(std::is_same<T, float>::value) {
+    return CUDA_R_32F;
+  } else if constexpr(std::is_same<T, double>::value) {
+    return CUDA_R_64F;
+  } else if constexpr(std::is_same<T, half>::value) {
+    return CUDA_R_16F;
+  }
+}
+
+#endif
 #endif //TORQUE_GPU_LIB_HELPER_CUH

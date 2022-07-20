@@ -59,14 +59,20 @@ reshape_kernel_with_boost(const T * src_data,
                           const uint32_t * dest_index_table,
                           T * dest_data);
 
-template<typename T>
+template<typename T, bool reverse>
 void
 reshape(T * dest_data,
         const T * src_data,
         const arma::umat & blocks_dimensions,
         const arma::umat & blocks_strides,
         const arma::uvec & blocks_offsets,
-        const arma::uvec & dest_dimensions) {
+        const arma::uvec & dest_dimensions,
+        cudaStream_t stream = 0) {
+
+  cudaStream_t sub_stream[5];
+  for (int i = 0; i < 5; i++) {
+    cudaStreamCreate(sub_stream + i);
+  }
 
   const arma::uword n_blocks = blocks_dimensions.n_cols;
   const arma::uword rank = blocks_dimensions.n_rows;
@@ -79,24 +85,28 @@ reshape(T * dest_data,
   }
 
   uint32_t * dev_block_index_tables;
-  gpuErrchk(cudaMalloc(&dev_block_index_tables,
-                       sizeof(uint32_t) * blocks_index_tables.n_elem));
+  gpuErrchk(cudaMallocAsync(&dev_block_index_tables,
+                            sizeof(uint32_t) * blocks_index_tables.n_elem,
+                            sub_stream[0]));
   util::arma_to_cuda(dev_block_index_tables,
                      arma::conv_to<arma::Col<uint32_t>>::from(
-                         arma::vectorise(blocks_index_tables)));
+                         arma::vectorise(blocks_index_tables)), sub_stream[0]);
 
   uint32_t * dev_blocks_strides;
   gpuErrchk(
-      cudaMalloc(&dev_blocks_strides,
-                 sizeof(uint32_t) * blocks_strides.n_elem));
+      cudaMallocAsync(&dev_blocks_strides,
+                      sizeof(uint32_t) * blocks_strides.n_elem, sub_stream[1]));
   util::arma_to_cuda(dev_blocks_strides,
                      arma::conv_to<arma::Col<uint32_t>>::from(
-                         arma::vectorise(blocks_strides)));
+                         arma::vectorise(blocks_strides)), sub_stream[1]);
 
   uint32_t * dev_block_offsets;
   gpuErrchk(
-      cudaMalloc(&dev_block_offsets, sizeof(uint32_t) * blocks_offsets.n_elem));
-  util::arma_to_cuda(dev_block_offsets, blocks_offsets);
+      cudaMallocAsync(&dev_block_offsets,
+                      sizeof(uint32_t) * blocks_offsets.n_elem, sub_stream[2]));
+  util::arma_to_cuda(dev_block_offsets,
+                     arma::conv_to<arma::Col<uint32_t>>::from(blocks_offsets),
+                     sub_stream[2]);
 
   const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions,
                                                             arma::uvec{
@@ -107,30 +117,37 @@ reshape(T * dest_data,
 
   uint32_t * dev_dest_index_table;
   gpuErrchk(
-      cudaMalloc(&dev_dest_index_table,
-                 sizeof(uint32_t) * dest_index_table.n_elem));
+      cudaMallocAsync(&dev_dest_index_table,
+                      sizeof(uint32_t) * dest_index_table.n_elem,
+                      sub_stream[3]));
   util::arma_to_cuda(dev_dest_index_table,
                      arma::conv_to<arma::Col<uint32_t>>::from(
-                         arma::vectorise(dest_index_table)));
+                         arma::vectorise(dest_index_table)), sub_stream[3]);
 
-  const arma::uvec n_elem_nest_sum =
-      arma::cumsum(arma::prod(blocks_dimensions).t()) -
-      arma::prod(blocks_dimensions).t();
+  const arma::Col<uint32_t> n_elem_nest_sum =
+      arma::conv_to<arma::Col<uint32_t>>::from(
+          arma::cumsum(arma::prod(blocks_dimensions).t()) -
+          arma::prod(blocks_dimensions).t());
 
   const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
 
   uint32_t * n_elem_nest_sum_dev;
   gpuErrchk(
-      cudaMalloc(&n_elem_nest_sum_dev,
-                 sizeof(uint32_t) * n_elem_nest_sum.n_elem));
-  util::arma_to_cuda(n_elem_nest_sum_dev, n_elem_nest_sum);
+      cudaMallocAsync(&n_elem_nest_sum_dev,
+                      sizeof(uint32_t) * n_elem_nest_sum.n_elem,
+                      sub_stream[4]));
+  util::arma_to_cuda(n_elem_nest_sum_dev, n_elem_nest_sum, sub_stream[4]);
 
   uint threads_per_block = 1024;
   uint blocks = n_elem / 1024 + 1;
 
-  cudaDeviceSynchronize();
+  cudaStreamSynchronize(sub_stream[0]);
+  cudaStreamSynchronize(sub_stream[1]);
+  cudaStreamSynchronize(sub_stream[2]);
+  cudaStreamSynchronize(sub_stream[3]);
+  cudaStreamSynchronize(sub_stream[4]);
 
-  reshape_kernel<T, reverse><<<blocks, threads_per_block>>>(
+  reshape_kernel<T, reverse><<<blocks, threads_per_block, 0, stream>>>(
       src_data,
       dev_block_index_tables,
       dev_blocks_strides,
@@ -143,7 +160,128 @@ reshape(T * dest_data,
       dest_data
   );
 
-  cudaDeviceSynchronize();
+  gpuErrchk(cudaFree(dev_block_index_tables));
+  gpuErrchk(cudaFree(dev_blocks_strides));
+  gpuErrchk(cudaFree(dev_block_offsets));
+  gpuErrchk(cudaFree(n_elem_nest_sum_dev));
+  gpuErrchk(cudaFree(dev_dest_index_table));
+
+  for (auto & i: sub_stream) {
+    cudaStreamDestroy(i);
+  }
+}
+
+template<typename T>
+void
+reshape_with_boost(T * dest_data,
+                   const T * src_data,
+                   const arma::umat & blocks_dimensions,
+                   const arma::umat & boosts,
+                   const arma::umat & blocks_strides,
+                   const arma::uvec & blocks_offsets,
+                   const arma::uvec & dest_dimensions,
+                   cudaStream_t stream = 0) {
+
+  cudaStream_t sub_stream[6];
+  for (int i = 0; i < 6; i++) {
+    cudaStreamCreate(sub_stream + i);
+  }
+
+  const arma::uword n_blocks = blocks_dimensions.n_cols;
+  const arma::uword rank = blocks_dimensions.n_rows;
+
+  arma::umat blocks_index_tables(arma::size(blocks_dimensions));
+
+  for (uint32_t i = 0; i < n_blocks; i++) {
+    blocks_index_tables.col(i) = torque::util::generate_index_table(
+        blocks_dimensions.col(i));
+  }
+
+  uint32_t * dev_block_index_tables;
+  gpuErrchk(cudaMallocAsync(&dev_block_index_tables,
+                            sizeof(uint32_t) * blocks_index_tables.n_elem,
+                            sub_stream[0]));
+  util::arma_to_cuda(dev_block_index_tables,
+                     arma::conv_to<arma::Col<uint32_t>>::from(
+                         arma::vectorise(blocks_index_tables)), sub_stream[0]);
+
+  uint32_t * dev_blocks_strides;
+  gpuErrchk(
+      cudaMallocAsync(&dev_blocks_strides,
+                      sizeof(uint32_t) * blocks_strides.n_elem, sub_stream[1]));
+  util::arma_to_cuda(dev_blocks_strides,
+                     arma::conv_to<arma::Col<uint32_t>>::from(
+                         arma::vectorise(blocks_strides)), sub_stream[1]);
+
+  const arma::Col<uint32_t> vectorised_boost =
+      arma::conv_to<arma::Col<uint32_t>>::from(boosts);
+
+  uint32_t * boost_dev;
+  gpuErrchk(cudaMallocAsync(&boost_dev, sizeof(uint32_t) * boosts.n_elem,
+                            sub_stream[5]));
+  util::arma_to_cuda(boost_dev, vectorised_boost, sub_stream[5]);
+
+  uint32_t * dev_block_offsets;
+  gpuErrchk(
+      cudaMallocAsync(&dev_block_offsets,
+                      sizeof(uint32_t) * blocks_offsets.n_elem, sub_stream[2]));
+  util::arma_to_cuda(dev_block_offsets,
+                     arma::conv_to<arma::Col<uint32_t>>::from(blocks_offsets),
+                     sub_stream[2]);
+
+  const arma::uvec padded_dest_dimensions = arma::join_vert(dest_dimensions,
+                                                            arma::uvec{
+                                                                n_blocks});
+
+  const arma::uvec dest_index_table = torque::util::generate_index_table(
+      padded_dest_dimensions);
+
+  uint32_t * dev_dest_index_table;
+  gpuErrchk(
+      cudaMallocAsync(&dev_dest_index_table,
+                      sizeof(uint32_t) * dest_index_table.n_elem,
+                      sub_stream[3]));
+  util::arma_to_cuda(dev_dest_index_table,
+                     arma::conv_to<arma::Col<uint32_t>>::from(
+                         arma::vectorise(dest_index_table)), sub_stream[3]);
+
+  const arma::Col<uint32_t> n_elem_nest_sum =
+      arma::conv_to<arma::Col<uint32_t>>::from(
+          arma::cumsum(arma::prod(blocks_dimensions).t()) -
+          arma::prod(blocks_dimensions).t());
+
+  const arma::uword n_elem = arma::sum(arma::prod(blocks_dimensions));
+
+  uint32_t * n_elem_nest_sum_dev;
+  gpuErrchk(
+      cudaMallocAsync(&n_elem_nest_sum_dev,
+                      sizeof(uint32_t) * n_elem_nest_sum.n_elem,
+                      sub_stream[4]));
+  util::arma_to_cuda(n_elem_nest_sum_dev, n_elem_nest_sum, sub_stream[4]);
+
+  uint threads_per_block = 1024;
+  uint blocks = n_elem / 1024 + 1;
+
+  cudaStreamSynchronize(sub_stream[0]);
+  cudaStreamSynchronize(sub_stream[1]);
+  cudaStreamSynchronize(sub_stream[2]);
+  cudaStreamSynchronize(sub_stream[3]);
+  cudaStreamSynchronize(sub_stream[4]);
+  cudaStreamSynchronize(sub_stream[5]);
+
+  reshape_kernel_with_boost<T><<<blocks, threads_per_block, 0, stream>>>(
+      src_data,
+      dev_block_index_tables,
+      boost_dev,
+      dev_blocks_strides,
+      dev_block_offsets,
+      n_elem_nest_sum_dev,
+      n_blocks,
+      n_elem,
+      rank,
+      dev_dest_index_table,
+      dest_data
+  );
 
   gpuErrchk(cudaFree(dev_block_index_tables));
   gpuErrchk(cudaFree(dev_blocks_strides));
@@ -151,8 +289,10 @@ reshape(T * dest_data,
   gpuErrchk(cudaFree(n_elem_nest_sum_dev));
   gpuErrchk(cudaFree(dev_dest_index_table));
 
+  for (int i = 0; i < 6; i++) {
+    cudaStreamDestroy(sub_stream[i]);
+  }
 }
-
 }
 
 /// a tensor object that stores blocks of sub-tensors. The blocks may have intersections.
@@ -572,37 +712,12 @@ public:
   /// \param contracting_indices the corresponding two indices for the dimensions to contract
   /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
   BlockSparseTensor<T>
-  contract(cutensorHandle_t * handle,
+  contract(cutensorHandle_t * cutensor_handle,
            const BlockSparseTensor<T> & tensor,
            const arma::umat & contracting_indices) const {
 
-    const auto permutation_generator =
-        [](const arma::uvec & contracting_indices,
-           const arma::uword target_rank) -> arma::uvec {
-
-          arma::uvec transposition(target_rank);
-
-          for (int j = 0; j < target_rank; j++) {
-            transposition(j) = j;
-          }
-
-          transposition.shed_rows(contracting_indices);
-
-          return arma::join_vert(
-              arma::join_vert(transposition, contracting_indices),
-              arma::uvec{target_rank});
-        };
-
-
     const arma::uvec this_contracting_indices = contracting_indices.col(0);
     const arma::uvec that_contracting_indices = contracting_indices.col(1);
-
-    const arma::uvec A_permutation =
-        permutation_generator(this_contracting_indices, this->rank);
-
-    const arma::uvec B_permutation =
-        permutation_generator(that_contracting_indices, tensor.rank);
-
 
     const arma::uvec contract_dimension = this->dimension(
         this_contracting_indices);
@@ -626,8 +741,11 @@ public:
     std::vector<torque::block_sparse::ContractionInfo> contraction_infos;
     std::vector<arma::uword> non_trivial_A_block_indices;
     std::vector<arma::uword> n_elem_wrt_A_block;
-    arma::umat total_begin_points;
-    arma::umat total_end_points;
+    std::vector<arma::uvec> B_block_max_dimensions;
+    std::vector<arma::umat> B_boosts;
+    std::vector<arma::uvec> out_block_max_dimensions;
+    std::vector<arma::umat> total_begin_points;
+    std::vector<arma::umat> total_end_points;
 
     for (arma::uword i = 0; i < this->block_n_elem.n_elem; i++) {
       const arma::uvec A_begin_point = this->begin_points.col(i);
@@ -643,10 +761,10 @@ public:
       if (contracting_info.block_indices.n_elem != 0) {
         contraction_infos.push_back(contracting_info);
         non_trivial_A_block_indices.push_back(i);
-        total_begin_points = arma::join_horiz(total_begin_points,
-                                              contracting_info.new_begin_points);
-        total_end_points = arma::join_horiz(total_end_points,
-                                            contracting_info.new_end_points);
+
+        total_begin_points.push_back(contracting_info.new_begin_points);
+        total_end_points.push_back(contracting_info.new_end_points);
+
         const arma::umat dimension_slice =
             contracting_info.new_end_points
             - contracting_info.new_begin_points
@@ -654,6 +772,30 @@ public:
                 arma::size(contracting_info.new_begin_points));
 
         n_elem_wrt_A_block.push_back(arma::sum(arma::prod(dimension_slice)));
+        out_block_max_dimensions.push_back(
+            arma::join_vert(arma::max(dimension_slice, 1),
+                            arma::uvec{contracting_info.block_indices.n_elem}));
+        const arma::umat B_dimensions =
+            contracting_info.B_end_points - contracting_info.B_begin_points + 1;
+        arma::uvec B_max_dimensions = arma::max(B_dimensions, 1);
+
+        B_max_dimensions.rows(
+            that_contracting_indices) = this->blocks_dimension.col(i)(
+            this_contracting_indices);
+
+        B_block_max_dimensions.push_back(arma::join_vert(B_max_dimensions,
+                                                         arma::uvec{
+                                                             contracting_info.block_indices.n_elem}));
+
+
+        arma::umat B_boost(arma::size(B_dimensions), arma::fill::zeros);
+        const arma::umat B_begin_points_in_contraction_modes =
+            contracting_info.B_begin_points.rows(that_contracting_indices);
+        B_boost.rows(that_contracting_indices) =
+            B_begin_points_in_contraction_modes.each_col() -
+            this->begin_points.col(i)(this_contracting_indices);
+
+        B_boosts.push_back(B_boost);
       }
     }
 
@@ -662,8 +804,7 @@ public:
     }
 
     arma::umat new_blocks_dimensions =
-        total_end_points - total_begin_points +
-        arma::ones<arma::umat>(arma::size(total_begin_points));
+        total_end_points - total_begin_points + 1;
 
     arma::umat blocks_index_tables(arma::size(new_blocks_dimensions));
 
@@ -682,21 +823,235 @@ public:
     // temporary variable for dot operation (i.e. result.rank == 0)
     T * result_data;
     if (result_rank == 0) {
-      gpuErrchk(cudaMalloc(&result_data, sizeof(T)));
+      gpuErrchk(cudaMallocAsync(&result_data, sizeof(T), 0));
     } else {
-      gpuErrchk(cudaMalloc(&result_data,
-                           sizeof(T) * arma::sum(n_elem_wrt_A_block_in_uvec)));
+      gpuErrchk(cudaMallocAsync(&result_data,
+                                sizeof(T) *
+                                arma::sum(n_elem_wrt_A_block_in_uvec, 0)));
     }
 
     const size_t n_A_blocks = non_trivial_A_block_indices.size();
 
     cudaStream_t streams[n_A_blocks];
 
-    for(size_t i=0; i<n_A_blocks; i++) {
+    for (size_t i = 0; i < n_A_blocks; i++) {
       cudaStreamCreate(streams + i);
     }
 
+    T * B_blocks_copies[n_A_blocks];
+    T * out_blocks_copies[n_A_blocks];
 
+    for (size_t i = 0; i < n_A_blocks; i++) {
+      cudaStreamDestroy(streams[i]);
+    }
+
+    for (size_t i = 0; i < n_A_blocks; i++) {
+      cudaMallocAsync(&B_blocks_copies[i],
+                      arma::prod(B_block_max_dimensions[i]), streams[i]);
+
+      cudaMallocAsync(&out_blocks_copies[i],
+                      arma::prod(out_block_max_dimensions[i]), streams[i]);
+
+      const auto & A_index = non_trivial_A_block_indices[i];
+      const auto this_dim = arma::conv_to<std::vector<int64_t>>::from(
+          this->blocks_dimension.col(A_index));
+      const auto this_table = arma::conv_to<std::vector<int64_t>>::from(
+          this->index_tables.col(A_index));
+
+      const auto & that_dim = arma::conv_to<std::vector<int64_t>>::from(
+          B_block_max_dimensions[i]);
+      const auto that_table = arma::conv_to<std::vector<int64_t>>::from(
+          torque::util::generate_index_table(B_block_max_dimensions[i]));
+
+      const auto & contraction_info = contraction_infos[i];
+
+      const arma::umat B_blocks_dimension =
+          contraction_info.B_begin_points - contraction_info.B_end_points + 1;
+      arma::umat B_blocks_strides(arma::size(B_blocks_dimension));
+      for (arma::uword j = 0; B_blocks_strides.n_cols; j++) {
+        B_blocks_strides.col(j) = torque::util::generate_index_table(
+            B_blocks_dimension.col(j));
+      }
+
+      const arma::uvec & padded_result_dimension = out_block_max_dimensions[i];
+
+      const auto result_dim =
+          arma::conv_to<std::vector<int64_t>>::from(padded_result_dimension);
+
+      const auto result_table = arma::conv_to<std::vector<int64_t>>::from(
+          torque::util::generate_index_table(padded_result_dimension));
+
+      const auto compute_type = cutensor_compute_type<T>();
+      const auto data_type = cutensor_data_type<T>();
+
+      const arma::uvec B_block_indices = contraction_info.block_indices;
+      const arma::umat B_subblock_rel_begin_points =
+          contraction_info.B_begin_points -
+          tensor.begin_points.cols(B_block_indices);
+
+      const arma::uvec B_subblock_offsets =
+          arma::sum(B_subblock_rel_begin_points %
+                    tensor.index_tables.cols(B_block_indices)).t()
+          + tensor.block_offsets.rows(B_block_indices);
+
+      block_sparse::reshape_with_boost(B_blocks_copies[i], tensor.data,
+                                       B_blocks_dimension,
+                                       B_boosts[i],
+                                       B_blocks_strides,
+                                       B_subblock_offsets,
+                                       out_block_max_dimensions[i],
+                                       streams[i]);
+
+      cutensorTensorDescriptor_t this_descriptor;
+
+      HANDLE_ERROR(cutensorInitTensorDescriptor(cutensor_handle,
+                                                &this_descriptor,
+                                                this->rank,
+                                                this_dim.data(),
+                                                this_table.data(),
+                                                data_type,
+                                                CUTENSOR_OP_IDENTITY));
+
+      cutensorTensorDescriptor_t that_descriptor;
+
+      HANDLE_ERROR(cutensorInitTensorDescriptor(cutensor_handle,
+                                                &that_descriptor,
+                                                tensor.rank + 1,
+                                                that_dim.data(),
+                                                that_table.data(),
+                                                data_type,
+                                                CUTENSOR_OP_IDENTITY));
+
+      cutensorTensorDescriptor_t result_descriptor;
+      HANDLE_ERROR(cutensorInitTensorDescriptor(cutensor_handle,
+                                                &result_descriptor,
+                                                new_dimension.n_elem + 1,
+                                                result_dim.data(),
+                                                result_table.data(),
+                                                data_type,
+                                                CUTENSOR_OP_IDENTITY));
+
+      uint32_t this_alignmentRequirement;
+      HANDLE_ERROR(cutensorGetAlignmentRequirement(cutensor_handle,
+                                                   this->data +
+                                                   this->block_offsets(A_index),
+                                                   &this_descriptor,
+                                                   &this_alignmentRequirement));
+
+      uint32_t that_alignmentRequirement;
+      HANDLE_ERROR(cutensorGetAlignmentRequirement(cutensor_handle,
+                                                   B_blocks_copies[i],
+                                                   &that_descriptor,
+                                                   &that_alignmentRequirement));
+
+      uint32_t result_alignmentRequirement;
+      HANDLE_ERROR(cutensorGetAlignmentRequirement(cutensor_handle,
+                                                   out_blocks_copies[i],
+                                                   &result_descriptor,
+                                                   &result_alignmentRequirement));
+
+      std::vector<int> total(this->rank + tensor.rank + 1);
+      for (int j = 0; j < this->rank + tensor.rank + 1; j++) {
+        total[j] = j + 1;
+      }
+      std::vector<int> this_mode(this->rank);
+      std::vector<int> that_mode(tensor.rank);
+
+      memcpy(this_mode.data(), total.data(), sizeof(int) * this->rank);
+      memcpy(that_mode.data(), total.data() + this->rank,
+             sizeof(int) * (tensor.rank + 1));
+
+      for (int i = 0; i < this_contracting_indices.n_elem; i++) {
+        this_mode[this_contracting_indices(i)] = -(i + 1);
+        that_mode[that_contracting_indices(i)] = -(i + 1);
+        total[this_contracting_indices(i)] = 0;
+        total[this->rank + that_contracting_indices(i)] = 0;
+      }
+
+      const auto result_mode =
+          arma::conv_to<std::vector<int>>::from(
+              arma::nonzeros(arma::Col<int>(total)));
+
+      cutensorContractionDescriptor_t desc;
+
+      HANDLE_ERROR(cutensorInitContractionDescriptor(cutensor_handle,
+                                                     &desc,
+                                                     &this_descriptor,
+                                                     this_mode.data(),
+                                                     this_alignmentRequirement,
+                                                     &that_descriptor,
+                                                     that_mode.data(),
+                                                     that_alignmentRequirement,
+                                                     &result_descriptor,
+                                                     result_mode.data(),
+                                                     result_alignmentRequirement,
+                                                     &result_descriptor,
+                                                     result_mode.data(),
+                                                     result_alignmentRequirement,
+                                                     compute_type));
+
+
+      cutensorContractionFind_t find;
+      HANDLE_ERROR(cutensorInitContractionFind(
+          cutensor_handle, &find, CUTENSOR_ALGO_DEFAULT));
+
+      // Query workspace
+      size_t worksize = 0;
+      HANDLE_ERROR(cutensorContractionGetWorkspace(cutensor_handle,
+                                                   &desc,
+                                                   &find,
+                                                   CUTENSOR_WORKSPACE_RECOMMENDED,
+                                                   &worksize));
+
+      // Allocate workspace
+      void * work[i];
+      if (worksize > 0) {
+        if (cudaSuccess != cudaMallocAsync(&work[i], worksize,
+                                           streams[i])) // This is optional!
+        {
+          work[i] = nullptr;
+          worksize = 0;
+        }
+      }
+
+      // Create Contraction Plan
+      cutensorContractionPlan_t plan;
+      HANDLE_ERROR(cutensorInitContractionPlan(cutensor_handle,
+                                               &plan,
+                                               &desc,
+                                               &find,
+                                               worksize));
+
+      cutensorStatus_t err;
+
+      T one = 1;
+      T zero = 0;
+
+      // Execute the tensor contraction
+      err = cutensorContraction(cutensor_handle,
+                                &plan,
+                                (void *) &one,
+                                this->data + this->block_offsets(A_index),
+                                B_blocks_copies[i],
+                                (void *) &zero,
+                                out_blocks_copies[i],
+                                out_blocks_copies[i],
+                                work, worksize, streams[i]);
+
+      // Check for errors
+      if (err != CUTENSOR_STATUS_SUCCESS) {
+        printf("ERROR: %s\n", cutensorGetErrorString(err));
+      }
+
+      cudaFreeAsync(B_blocks_copies[i], streams[i]);
+      block_sparse::reshape<T, true>(result_data + offsets_wrt_A_blocks(i),
+                                     out_blocks_copies[i],
+                                     new_blocks_dimensions,
+                                     new_subblock_index_tables,
+                                     subblock_offsets,
+                                     dimension_after_multiplication);
+
+    }
 
     return {result_data, result_rank, std::move(new_dimension),
             std::move(new_blocks_dimensions),
@@ -704,8 +1059,7 @@ public:
             std::move(new_blocks_n_elem),
             std::move(new_blocks_offsets), std::move(blocks_index_tables)};
 
-//            cudaStreamDestroy(stream1);
-//            cudaStreamDestroy(stream2);
+
   }
 
   /// Transposition of the tensors according to the permutation, creating new object with new alignment of data.
