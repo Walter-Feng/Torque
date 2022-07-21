@@ -1129,10 +1129,10 @@ public:
         const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
             out_blocks_copies[i]);
 
-//        dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
-//                                       thrust_cast, 
-//                                       thrust_cast +
-//                                       out_block_max_dimensions[i](0));
+        dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
+                                       thrust_cast,
+                                       thrust_cast +
+                                       out_block_max_dimensions[i](0));
 
         DEBUG(10086)
       }
