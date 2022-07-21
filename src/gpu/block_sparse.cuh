@@ -900,16 +900,18 @@ public:
       arma::umat blocks_index_tables(arma::size(new_blocks_dimensions));
 
       for (int j = 0; j < blocks_index_tables.n_cols; j++) {
-          blocks_index_tables.col(j) = torque::util::generate_index_table(
+        blocks_index_tables.col(j) = torque::util::generate_index_table(
             new_blocks_dimensions.col(j));
       }
 
-      gpuErrchk(cudaMallocAsync(B_blocks_copies + i,
-                      arma::prod(B_block_max_dimensions[i]) * sizeof(T), streams[i]));
+      gpuErrchk(cudaMallocAsync((void **)(B_blocks_copies + i),
+                                arma::prod(B_block_max_dimensions[i]) *
+                                sizeof(T), streams[i]));
 
       out_block_max_dimensions[i].print("ith out_block_max_dimensions");
-      gpuErrchk(cudaMallocAsync(out_blocks_copies + i,
-                      arma::prod(out_block_max_dimensions[i]) * sizeof(T), streams[i]));
+      gpuErrchk(cudaMallocAsync((void **)(out_blocks_copies + i),
+                                arma::prod(out_block_max_dimensions[i]) *
+                                sizeof(T), streams[i]));
 
       const auto & A_index = non_trivial_A_block_indices[i];
       const auto this_dim = arma::conv_to<std::vector<int64_t>>::from(
@@ -931,7 +933,7 @@ public:
         B_blocks_strides.col(j) = torque::util::generate_index_table(
             B_blocks_dimension.col(j));
       }
-   
+
       const arma::uvec & padded_result_dimension = out_block_max_dimensions[i];
 
       const auto result_dim =
@@ -944,7 +946,7 @@ public:
       const auto data_type = cutensor_data_type<T>();
 
       const arma::uvec B_block_indices = contraction_info.block_indices;
-      
+
       const arma::umat B_subblock_rel_begin_points =
           contraction_info.B_begin_points -
           tensor.begin_points.cols(B_block_indices);
@@ -1121,11 +1123,12 @@ public:
                                        out_block_max_dimensions[i],
                                        streams[i]);
       } else {
-          out_block_max_dimensions[i].print("out_block_max_dimensions");
+        out_block_max_dimensions[i].print("out_block_max_dimensions");
         assert(out_block_max_dimensions[i].n_elem == 1);
 
-        const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(out_blocks_copies[i]);
-        
+        const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
+            out_blocks_copies[i]);
+
 //        dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
 //                                       thrust_cast, 
 //                                       thrust_cast +
