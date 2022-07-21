@@ -890,7 +890,16 @@ public:
     }
 
     T * B_blocks_copies[n_A_blocks];
+    T ** dev_B_blocks_copies;
+    gpuErrchk(
+        cudaMallocAsync(&dev_B_blocks_copies, n_A_blocks * sizeof(T *), 0));
+
     T * out_blocks_copies[n_A_blocks];
+    T ** dev_out_blocks_copies;
+    gpuErrchk(
+        cudaMallocAsync(&dev_out_blocks_copies, n_A_blocks * sizeof(T *), 0));
+
+    gpuErrchk(cudaStreamSynchronize(0));
 
     for (size_t i = 0; i < n_A_blocks; i++) {
 
@@ -904,14 +913,21 @@ public:
             new_blocks_dimensions.col(j));
       }
 
-      gpuErrchk(cudaMallocAsync((void **)(B_blocks_copies + i),
+      gpuErrchk(cudaMallocAsync((void **) (B_blocks_copies + i),
                                 arma::prod(B_block_max_dimensions[i]) *
                                 sizeof(T), streams[i]));
 
       out_block_max_dimensions[i].print("ith out_block_max_dimensions");
-      gpuErrchk(cudaMallocAsync((void **)(out_blocks_copies + i),
+      gpuErrchk(cudaMallocAsync((void **) (out_blocks_copies + i),
                                 arma::prod(out_block_max_dimensions[i]) *
                                 sizeof(T), streams[i]));
+
+      gpuErrchk(cudaMemcpyAsync(dev_B_blocks_copies + i, B_blocks_copies + i,
+                                sizeof(T *), cudaMemcpyHostToDevice,
+                                streams[i]));
+      gpuErrchk(
+          cudaMemcpyAsync(dev_out_blocks_copies + i, out_blocks_copies + i,
+                          sizeof(T *), cudaMemcpyHostToDevice, streams[i]));
 
       const auto & A_index = non_trivial_A_block_indices[i];
       const auto this_dim = arma::conv_to<std::vector<int64_t>>::from(
@@ -1130,9 +1146,9 @@ public:
             out_blocks_copies[i]);
 
         dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
-                                       thrust_cast,
-                                       thrust_cast +
-                                       out_block_max_dimensions[i](0));
+                                   thrust_cast,
+                                   thrust_cast +
+                                   out_block_max_dimensions[i](0));
 
         DEBUG(10086)
       }
@@ -1154,6 +1170,9 @@ public:
     for (size_t i = 0; i < n_A_blocks; i++) {
       cudaStreamDestroy(streams[i]);
     }
+
+    gpuErrchk(cudaFreeAsync(dev_B_blocks_copies, 0));
+    gpuErrchk(cudaFreeAsync(dev_B_blocks_copies, 0));
 
 
     return BlockSparseTensor<T>(&result_data, concatenated_total_begin_points,
