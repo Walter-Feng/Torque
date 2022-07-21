@@ -889,8 +889,10 @@ public:
       cudaStreamCreate(streams + i);
     }
 
-    T * B_blocks_copies[n_A_blocks];
-    T * out_blocks_copies[n_A_blocks];
+    T ** B_blocks_copies;
+    cudaHostAlloc(B_blocks_copies, sizeof(T *) * n_A_blocks, cudaHostAllocMapped);
+    T ** out_blocks_copies;
+    cudaHostAlloc(out_blocks_copies, sizeof(T *) * n_A_blocks, cudaHostAllocMapped);
 
     for (size_t i = 0; i < n_A_blocks; i++) {
 
@@ -1141,6 +1143,9 @@ public:
       gpuErrchk(cudaFreeAsync(out_blocks_copies[i], streams[i]));
 
     }
+
+    cudaFreeHost(B_blocks_copies);
+    cudaFreeHost(out_blocks_copies);
 
     const arma::umat result_blocks_dimension =
         concatenated_total_end_points - concatenated_total_begin_points + 1;
