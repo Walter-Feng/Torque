@@ -357,11 +357,11 @@ public:
 
     // Query workspace
     size_t worksize = 0;
-    HANDLE_ERROR(cutensorContractionGetWorkspace(cutensor_handle,
-                                                 &desc,
-                                                 &find,
-                                                 CUTENSOR_WORKSPACE_RECOMMENDED,
-                                                 &worksize));
+    HANDLE_ERROR(cutensorContractionGetWorkspaceSize(cutensor_handle,
+                                                     &desc,
+                                                     &find,
+                                                     CUTENSOR_WORKSPACE_RECOMMENDED,
+                                                     &worksize));
 
     // Allocate workspace
     void * work = nullptr;
@@ -400,7 +400,7 @@ public:
       printf("ERROR: %s\n", cutensorGetErrorString(err));
     }
 
-    if ( work ) cudaFree( work );
+    if (work) cudaFree(work);
 
     return DenseTensor<T>(std::move(result), new_dimension);
 
