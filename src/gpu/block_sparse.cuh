@@ -972,7 +972,7 @@ public:
                     tensor.index_tables.cols(B_block_indices)).t()
           + tensor.block_offsets.rows(B_block_indices);
 
-      block_sparse::reshape_with_boost(B_blocks_copies[i], tensor.data,
+      block_sparse::reshape_with_boost(dev_B_blocks_copies[i], tensor.data,
                                        B_blocks_dimension,
                                        B_boosts[i],
                                        B_blocks_strides,
@@ -1018,13 +1018,13 @@ public:
 
       uint32_t that_alignmentRequirement;
       HANDLE_ERROR(cutensorGetAlignmentRequirement(cutensor_handle,
-                                                   B_blocks_copies[i],
+                                                   dev_B_blocks_copies[i],
                                                    &that_descriptor,
                                                    &that_alignmentRequirement));
 
       uint32_t result_alignmentRequirement;
       HANDLE_ERROR(cutensorGetAlignmentRequirement(cutensor_handle,
-                                                   out_blocks_copies[i],
+                                                   dev_out_blocks_copies[i],
                                                    &result_descriptor,
                                                    &result_alignmentRequirement));
 
@@ -1109,10 +1109,10 @@ public:
                                 &plan,
                                 (void *) &one,
                                 this->data + this->block_offsets(A_index),
-                                B_blocks_copies[i],
+                                dev_B_blocks_copies[i],
                                 (void *) &zero,
-                                out_blocks_copies[i],
-                                out_blocks_copies[i],
+                                dev_out_blocks_copies[i],
+                                dev_out_blocks_copies[i],
                                 work, worksize, streams[i]);
 
       // Check for errors
@@ -1123,7 +1123,7 @@ public:
       if (work[i]) gpuErrchk(cudaFreeAsync(work[i], streams[i]));
 
 
-      cudaFreeAsync(B_blocks_copies[i], streams[i]);
+      cudaFreeAsync(dev_B_blocks_copies[i], streams[i]);
 
       const arma::uvec out_blocks_n_elem = arma::prod(
           new_blocks_dimensions).t();
@@ -1132,7 +1132,7 @@ public:
 
       if (result_rank > 0) {
         block_sparse::reshape<T, true>(result_data + offsets_wrt_A_blocks(i),
-                                       out_blocks_copies[i],
+                                       dev_out_blocks_copies[i],
                                        new_blocks_dimensions,
                                        blocks_index_tables,
                                        out_block_offsets,
@@ -1143,7 +1143,7 @@ public:
         assert(out_block_max_dimensions[i].n_elem == 1);
 
         const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
-            out_blocks_copies[i]);
+            dev_out_blocks_copies[i]);
 
         dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
                                    thrust_cast,
@@ -1154,7 +1154,7 @@ public:
       }
 
 
-      gpuErrchk(cudaFreeAsync(out_blocks_copies[i], streams[i]));
+      gpuErrchk(cudaFreeAsync(dev_out_blocks_copies[i], streams[i]));
 
     }
 
