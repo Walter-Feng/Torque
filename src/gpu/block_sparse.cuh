@@ -890,9 +890,9 @@ public:
     }
 
     T ** B_blocks_copies;
-    cudaHostAlloc(B_blocks_copies, sizeof(T *) * n_A_blocks, cudaHostAllocMapped);
+    cudaHostAlloc(&B_blocks_copies, sizeof(T *) * n_A_blocks, cudaHostAllocMapped);
     T ** out_blocks_copies;
-    cudaHostAlloc(out_blocks_copies, sizeof(T *) * n_A_blocks, cudaHostAllocMapped);
+    cudaHostAlloc(&out_blocks_copies, sizeof(T *) * n_A_blocks, cudaHostAllocMapped);
 
     for (size_t i = 0; i < n_A_blocks; i++) {
 
