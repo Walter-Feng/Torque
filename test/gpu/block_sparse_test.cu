@@ -118,31 +118,31 @@ TEST_CASE("block sparse tensor operation") {
 
     CHECK(result.to_number() == 30);
   }
-
-  SECTION("matrix multiplication") {
-    const std::vector<float> vec{0, 1, 0, 0, 2, 3, 0, 0, 0, 0, 4, 5, 0, 0, 6,
-                                 7};
-
-    const std::vector<float> block_1{0, 1, 2, 3};
-    const std::vector<float> block_2{4, 5, 6, 7};
-
-    const torque::DenseTensor<float> tensor_format(vec.data(), {4, 4});
-    torque::gpu::BlockSparseTensor<float> sparse_tensor_format({4, 4});
-    sparse_tensor_format.append_block(block_1.data(), {0, 0}, {1, 1}, {1, 2});
-    sparse_tensor_format.append_block(block_2.data(), {2, 2}, {3, 3}, {1, 2});
-
-    const auto A_squared = tensor_format.contract(tensor_format,
-                                                  arma::umat({1, 0}));
-    const auto A_squared_sparse = sparse_tensor_format.contract(
-        &cutensor_handle, sparse_tensor_format, arma::umat({{1, 0}}));
-
-    for (arma::uword i = 0; i < 4; i++) {
-      for (arma::uword j = 0; j < 4; j++) {
-        CHECK(A_squared.query(arma::uvec{i, j}) ==
-              A_squared_sparse.query({i, j}));
-      }
-    }
-  }
+//
+//  SECTION("matrix multiplication") {
+//    const std::vector<float> vec{0, 1, 0, 0, 2, 3, 0, 0, 0, 0, 4, 5, 0, 0, 6,
+//                                 7};
+//
+//    const std::vector<float> block_1{0, 1, 2, 3};
+//    const std::vector<float> block_2{4, 5, 6, 7};
+//
+//    const torque::DenseTensor<float> tensor_format(vec.data(), {4, 4});
+//    torque::gpu::BlockSparseTensor<float> sparse_tensor_format({4, 4});
+//    sparse_tensor_format.append_block(block_1.data(), {0, 0}, {1, 1}, {1, 2});
+//    sparse_tensor_format.append_block(block_2.data(), {2, 2}, {3, 3}, {1, 2});
+//
+//    const auto A_squared = tensor_format.contract(tensor_format,
+//                                                  arma::umat({1, 0}));
+//    const auto A_squared_sparse = sparse_tensor_format.contract(
+//        &cutensor_handle, sparse_tensor_format, arma::umat({{1, 0}}));
+//
+//    for (arma::uword i = 0; i < 4; i++) {
+//      for (arma::uword j = 0; j < 4; j++) {
+//        CHECK(A_squared.query(arma::uvec{i, j}) ==
+//              A_squared_sparse.query({i, j}));
+//      }
+//    }
+//  }
 //
 //  SECTION("matrix inner product") {
 //    const std::vector<float> block1{0, 1, 2, 3};
