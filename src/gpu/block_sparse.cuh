@@ -826,7 +826,6 @@ public:
             + arma::ones<arma::umat>(
                 arma::size(contracting_info.new_begin_points));
 
-        dimension_slice.print("dimension_slice");
         n_elem_wrt_A_block.push_back(arma::sum(arma::prod(dimension_slice)));
         out_block_max_dimensions.push_back(
             arma::join_vert(arma::max(dimension_slice, 1),
@@ -874,11 +873,11 @@ public:
     T * result_data;
 
     if (result_rank == 0) {
-      gpuErrchk(cudaMallocAsync(&result_data, sizeof(T), 0));
+      gpuErrchk(cudaMalloc(&result_data, sizeof(T)));
     } else {
-      gpuErrchk(cudaMallocAsync(&result_data,
-                                sizeof(T) *
-                                arma::sum(n_elem_wrt_A_block_in_uvec), 0));
+      gpuErrchk(cudaMalloc(&result_data,
+                           sizeof(T) *
+                           arma::sum(n_elem_wrt_A_block_in_uvec)));
     }
 
     const size_t n_A_blocks = non_trivial_A_block_indices.size();
@@ -1129,9 +1128,9 @@ public:
             out_blocks_copy);
 
         dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
-                                       thrust_cast,
-                                       thrust_cast +
-                                       out_block_max_dimensions[i](0));
+                                   thrust_cast,
+                                   thrust_cast +
+                                   out_block_max_dimensions[i](0));
 
         DEBUG(10086)
       }
@@ -1154,7 +1153,7 @@ public:
       cudaStreamDestroy(streams[i]);
     }
 
-    if(result_rank == 0) {
+    if (result_rank == 0) {
       cudaMemcpy(result_data, &dot_temp, sizeof(T), cudaMemcpyHostToDevice);
     }
 
