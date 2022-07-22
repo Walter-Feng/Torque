@@ -889,12 +889,10 @@ public:
       cudaStreamCreate(streams + i);
     }
 
-    T ** B_blocks_copies;
-    cudaHostAlloc(&B_blocks_copies, sizeof(T *) * n_A_blocks, cudaHostAllocMapped);
-    T ** out_blocks_copies;
-    cudaHostAlloc(&out_blocks_copies, sizeof(T *) * n_A_blocks, cudaHostAllocMapped);
-
     for (size_t i = 0; i < n_A_blocks; i++) {
+
+      T * B_blocks_copy;
+      T * out_blocks_copy;
 
       arma::umat new_blocks_dimensions =
           total_end_points[i] - total_begin_points[i] + 1;
@@ -906,12 +904,11 @@ public:
             new_blocks_dimensions.col(j));
       }
 
-      gpuErrchk(cudaMallocAsync((void **)(B_blocks_copies + i),
+      gpuErrchk(cudaMallocAsync(&B_blocks_copy,
                                 arma::prod(B_block_max_dimensions[i]) *
                                 sizeof(T), streams[i]));
 
-      out_block_max_dimensions[i].print("ith out_block_max_dimensions");
-      gpuErrchk(cudaMallocAsync((void **)(out_blocks_copies + i),
+      gpuErrchk(cudaMallocAsync(&out_blocks_copy,
                                 arma::prod(out_block_max_dimensions[i]) *
                                 sizeof(T), streams[i]));
 
@@ -958,7 +955,7 @@ public:
                     tensor.index_tables.cols(B_block_indices)).t()
           + tensor.block_offsets.rows(B_block_indices);
 
-      block_sparse::reshape_with_boost(B_blocks_copies[i], tensor.data,
+      block_sparse::reshape_with_boost(B_blocks_copy, tensor.data,
                                        B_blocks_dimension,
                                        B_boosts[i],
                                        B_blocks_strides,
@@ -1004,13 +1001,13 @@ public:
 
       uint32_t that_alignmentRequirement;
       HANDLE_ERROR(cutensorGetAlignmentRequirement(cutensor_handle,
-                                                   B_blocks_copies[i],
+                                                   B_blocks_copy,
                                                    &that_descriptor,
                                                    &that_alignmentRequirement));
 
       uint32_t result_alignmentRequirement;
       HANDLE_ERROR(cutensorGetAlignmentRequirement(cutensor_handle,
-                                                   out_blocks_copies[i],
+                                                   out_blocks_copy,
                                                    &result_descriptor,
                                                    &result_alignmentRequirement));
 
@@ -1095,10 +1092,10 @@ public:
                                 &plan,
                                 (void *) &one,
                                 this->data + this->block_offsets(A_index),
-                                B_blocks_copies[i],
+                                B_blocks_copy,
                                 (void *) &zero,
-                                out_blocks_copies[i],
-                                out_blocks_copies[i],
+                                out_blocks_copy,
+                                out_blocks_copy,
                                 work, worksize, streams[i]);
 
       // Check for errors
@@ -1109,7 +1106,7 @@ public:
       if (work[i]) gpuErrchk(cudaFreeAsync(work[i], streams[i]));
 
 
-      cudaFreeAsync(B_blocks_copies[i], streams[i]);
+      cudaFreeAsync(B_blocks_copy, streams[i]);
 
       const arma::uvec out_blocks_n_elem = arma::prod(
           new_blocks_dimensions).t();
@@ -1118,7 +1115,7 @@ public:
 
       if (result_rank > 0) {
         block_sparse::reshape<T, true>(result_data + offsets_wrt_A_blocks(i),
-                                       out_blocks_copies[i],
+                                       out_blocks_copy,
                                        new_blocks_dimensions,
                                        blocks_index_tables,
                                        out_block_offsets,
@@ -1129,7 +1126,7 @@ public:
         assert(out_block_max_dimensions[i].n_elem == 1);
 
         const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
-            out_blocks_copies[i]);
+            out_blocks_copy);
 
         dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
                                        thrust_cast,
@@ -1140,12 +1137,9 @@ public:
       }
 
 
-      gpuErrchk(cudaFreeAsync(out_blocks_copies[i], streams[i]));
+      gpuErrchk(cudaFreeAsync(out_blocks_copy, streams[i]));
 
     }
-
-    cudaFreeHost(B_blocks_copies);
-    cudaFreeHost(out_blocks_copies);
 
     const arma::umat result_blocks_dimension =
         concatenated_total_end_points - concatenated_total_begin_points + 1;
@@ -1158,6 +1152,10 @@ public:
 
     for (size_t i = 0; i < n_A_blocks; i++) {
       cudaStreamDestroy(streams[i]);
+    }
+
+    if(result_rank == 0) {
+      cudaMemcpy(result_data, &dot_temp, sizeof(T), cudaMemcpyHostToDevice);
     }
 
 
