@@ -27,8 +27,14 @@
 
 TEST_CASE("Block-sparse n_blocks test") {
 
+#ifdef USE_CUTENSOR
+  cutensorHandle_t cutensor_handle;
+  cutensorHandle_t * handle = & cutensor_handle;
+  cutensorInit(&cutensor_handle);
+#else
   cublasHandle_t handle;
   cublasCreate(&handle);
+#endif
 
   // (From Eric's code)
   cudaEvent_t start;
@@ -269,7 +275,10 @@ TEST_CASE("Block-sparse n_blocks test") {
   std::cout << std::endl;
   std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
 
+#ifndef USE_CUTENSOR
   cublasDestroy(handle);
+#endif
+
 }
 
 #ifdef USE_CUTENSOR
