@@ -4,11 +4,14 @@
 
 TEST_CASE("block sparse tensor operation") {
 
+#ifdef USE_CUTENSOR
+  cutensorHandle_t cutensor_handle;
+  cutensorHandle_t * handle = &cutensor_handle;
+  cutensorInit(handle);
+#else
   cublasHandle_t handle;
   cublasCreate(&handle);
-
-  cutensorHandle_t cutensor_handle;
-  cutensorInit(&cutensor_handle);
+#endif
 
   SECTION("block sparse matrix initialization") {
     const int rank = 2; // Matrix
@@ -113,7 +116,7 @@ TEST_CASE("block sparse tensor operation") {
     tensor_format.append_block(vec2.data(), {2}, {4}, {1});
 
     const auto result =
-        tensor_format.contract(&cutensor_handle, tensor_format,
+        tensor_format.contract(handle, tensor_format,
                                arma::umat({{0, 0}}));
 
     CHECK(result.to_number() == 30);
@@ -134,7 +137,7 @@ TEST_CASE("block sparse tensor operation") {
     const auto A_squared = tensor_format.contract(tensor_format,
                                                   arma::umat({1, 0}));
     const auto A_squared_sparse = sparse_tensor_format.contract(
-        &cutensor_handle, sparse_tensor_format, arma::umat({{1, 0}}));
+        handle, sparse_tensor_format, arma::umat({{1, 0}}));
 
     for (arma::uword i = 0; i < 4; i++) {
       for (arma::uword j = 0; j < 4; j++) {
@@ -155,7 +158,7 @@ TEST_CASE("block sparse tensor operation") {
     tensor_format.append_block(block2.data(), {1, 1}, {2, 2}, {1, 2});
 
     const auto A_squared =
-        tensor_format.contract(&cutensor_handle, tensor_format,
+        tensor_format.contract(handle, tensor_format,
                                arma::umat({{1, 0},
                                            {0, 1}}));
 
@@ -184,7 +187,7 @@ TEST_CASE("block sparse tensor operation") {
     torque::gpu::BlockSparseTensor<float> vector_in_tensor({2});
     vector_in_tensor.append_block(vector.data(), {0}, {1}, {1});
 
-    const auto contraction = tensor_format.contract(&cutensor_handle,
+    const auto contraction = tensor_format.contract(handle,
                                                     vector_in_tensor,
                                                     arma::umat{{0, 0}});
 
@@ -193,7 +196,7 @@ TEST_CASE("block sparse tensor operation") {
     CHECK(contraction.query({0, 1}) == 14);
     CHECK(contraction.query({1, 1}) == 20);
 
-    const auto contraction_2 = tensor_format.contract(&cutensor_handle,
+    const auto contraction_2 = tensor_format.contract(handle,
                                                       vector_in_tensor,
                                                       arma::umat{{1, 0}});
 
@@ -202,7 +205,7 @@ TEST_CASE("block sparse tensor operation") {
     CHECK(contraction_2.query({0, 1}) == 16);
     CHECK(contraction_2.query({1, 1}) == 19);
 
-    const auto contraction_3 = tensor_format.contract(&cutensor_handle,
+    const auto contraction_3 = tensor_format.contract(handle,
                                                       vector_in_tensor,
                                                       arma::umat{{2, 0}});
 
@@ -229,7 +232,7 @@ TEST_CASE("block sparse tensor operation") {
         {2, 2}); // row vector
 
     matrix_in_tensor.append_block(matrix.data(), {0, 0}, {1, 1}, {1, 2});
-    const auto contraction = tensor_format.contract(&cutensor_handle,
+    const auto contraction = tensor_format.contract(handle,
                                                     matrix_in_tensor,
                                                     arma::umat{{0, 1},
                                                                {1, 0}});
@@ -239,7 +242,9 @@ TEST_CASE("block sparse tensor operation") {
     CHECK(contraction.query({2}) == 99);
   }
 
+#ifndef USE_CUTENSOR
   cublasDestroy(handle);
+#endif
 
   cudaDeviceSynchronize();
   cudaDeviceReset();
