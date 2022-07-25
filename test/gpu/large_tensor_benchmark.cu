@@ -102,11 +102,8 @@ TEST_CASE("Block-sparse n_blocks test") {
         auto sliced_matrix = chunk_matrix;
 
         for (int k = 0; k < j; k++) {
-          DEBUG(1)
           sliced_tensor = sliced_tensor.slice({2, 2});
-          DEBUG(2)
           sliced_matrix = sliced_matrix.slice({2, 2});
-          DEBUG(3)
         }
 
         START_TIMER();

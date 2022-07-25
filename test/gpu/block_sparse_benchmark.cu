@@ -101,7 +101,5 @@ std::cout << j << "-slice contraction time consumed: "
 std::cout << std::endl;
 std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
 
-#ifndef USE_CUTENSOR
-  cublasDestroy(handle);
-#endif
+
 }
