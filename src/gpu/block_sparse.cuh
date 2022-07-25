@@ -1183,7 +1183,7 @@ public:
   }
 
 #else
-  z /// Contraction with another tensor
+  /// Contraction with another tensor
   /// \param tensor another tensor to be contracted with
   /// \param contracting_indices the corresponding two indices for the dimensions to contract
   /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
