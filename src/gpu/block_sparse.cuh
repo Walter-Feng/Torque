@@ -138,8 +138,8 @@ reshape(T * dest_data,
                       sub_stream[4]));
   util::arma_to_cuda(n_elem_nest_sum_dev, n_elem_nest_sum, sub_stream[4]);
 
-  uint threads_per_block = 1024;
-  uint blocks = n_elem / 1024 + 1;
+  uint threads_per_block = 128;
+  uint blocks = n_elem / 128 + 1;
 
   cudaStreamSynchronize(sub_stream[0]);
   cudaStreamSynchronize(sub_stream[1]);
@@ -216,7 +216,7 @@ reshape_with_boost(T * dest_data,
                          arma::vectorise(blocks_strides)), sub_stream[1]);
 
   const arma::Col<uint32_t> vectorised_boost =
-      arma::conv_to<arma::Col<uint32_t>>::from(boosts);
+      arma::conv_to<arma::Col<uint32_t>>::from(arma::vectorise(boosts));
 
   uint32_t * boost_dev;
   gpuErrchk(cudaMallocAsync(&boost_dev, sizeof(uint32_t) * boosts.n_elem,
@@ -818,7 +818,7 @@ public:
             concatenated_total_begin_points, contracting_info.new_begin_points);
 
         concatenated_total_end_points = arma::join_horiz(
-            concatenated_total_begin_points, contracting_info.new_end_points);
+            concatenated_total_end_points, contracting_info.new_end_points);
 
         const arma::umat dimension_slice =
             contracting_info.new_end_points
@@ -869,7 +869,12 @@ public:
         arma::cumsum(n_elem_wrt_A_block_in_uvec) - n_elem_wrt_A_block_in_uvec;
 
     // temporary variable for dot operation (i.e. result.rank == 0)
-    T dot_temp = 0;
+//    T dot_temp = 0;
+    T * reduce_temp;
+    int * garbage;
+    cudaMallocAsync(&reduce_temp, sizeof(T), 0);
+    cudaMallocAsync(&garbage, sizeof(int), 0);
+
     T * result_data;
 
     if (result_rank == 0) {
@@ -907,7 +912,15 @@ public:
                                 arma::prod(B_block_max_dimensions[i]) *
                                 sizeof(T), streams[i]));
 
+      gpuErrchk(cudaMemsetAsync(B_blocks_copy, 0,
+                                arma::prod(B_block_max_dimensions[i]) *
+                                sizeof(T), streams[i]));
+
       gpuErrchk(cudaMallocAsync(&out_blocks_copy,
+                                arma::prod(out_block_max_dimensions[i]) *
+                                sizeof(T), streams[i]));
+
+      gpuErrchk(cudaMemsetAsync(out_blocks_copy, 0,
                                 arma::prod(out_block_max_dimensions[i]) *
                                 sizeof(T), streams[i]));
 
@@ -917,7 +930,7 @@ public:
       const auto this_table = arma::conv_to<std::vector<int64_t>>::from(
           this->index_tables.col(A_index));
 
-      const auto & that_dim = arma::conv_to<std::vector<int64_t>>::from(
+      const auto that_dim = arma::conv_to<std::vector<int64_t>>::from(
           B_block_max_dimensions[i]);
       const auto that_table = arma::conv_to<std::vector<int64_t>>::from(
           torque::util::generate_index_table(B_block_max_dimensions[i]));
@@ -925,7 +938,7 @@ public:
       const auto & contraction_info = contraction_infos[i];
 
       const arma::umat B_blocks_dimension =
-          contraction_info.B_begin_points - contraction_info.B_end_points + 1;
+          contraction_info.B_end_points - contraction_info.B_begin_points + 1;
       arma::umat B_blocks_strides(arma::size(B_blocks_dimension));
       for (arma::uword j = 0; j < B_blocks_strides.n_cols; j++) {
         B_blocks_strides.col(j) = torque::util::generate_index_table(
@@ -959,7 +972,7 @@ public:
                                        B_boosts[i],
                                        B_blocks_strides,
                                        B_subblock_offsets,
-                                       out_block_max_dimensions[i],
+                                       B_block_max_dimensions[i],
                                        streams[i]);
 
       cutensorTensorDescriptor_t this_descriptor;
@@ -1063,18 +1076,19 @@ public:
                                                        &worksize));
 
       // Allocate workspace
-      void * work[i];
+      void * work;
       if (worksize > 0) {
-        if (cudaSuccess != cudaMallocAsync(&work[i], worksize,
+        if (cudaSuccess != cudaMallocAsync(&work, worksize,
                                            streams[i])) // This is optional!
         {
-          work[i] = nullptr;
+          work = nullptr;
           worksize = 0;
         }
       }
 
       // Create Contraction Plan
       cutensorContractionPlan_t plan;
+
       HANDLE_ERROR(cutensorInitContractionPlan(cutensor_handle,
                                                &plan,
                                                &desc,
@@ -1087,6 +1101,7 @@ public:
       T zero = 0;
 
       // Execute the tensor contraction
+
       err = cutensorContraction(cutensor_handle,
                                 &plan,
                                 (void *) &one,
@@ -1102,7 +1117,7 @@ public:
         printf("ERROR: %s\n", cutensorGetErrorString(err));
       }
 
-      if (work[i]) gpuErrchk(cudaFreeAsync(work[i], streams[i]));
+      if (work) gpuErrchk(cudaFreeAsync(work, streams[i]));
 
 
       cudaFreeAsync(B_blocks_copy, streams[i]);
@@ -1121,18 +1136,27 @@ public:
                                        out_block_max_dimensions[i],
                                        streams[i]);
       } else {
-        out_block_max_dimensions[i].print("out_block_max_dimensions");
+
         assert(out_block_max_dimensions[i].n_elem == 1);
 
         const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
             out_blocks_copy);
 
-        dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
-                                   thrust_cast,
-                                   thrust_cast +
-                                   out_block_max_dimensions[i](0));
+        const thrust::constant_iterator<int> dummy_key(0);
 
-        DEBUG(10086)
+        thrust::reduce_by_key(thrust::cuda::par.on(streams[i]),
+                              dummy_key,
+                              dummy_key + out_block_max_dimensions[i](0),
+                              thrust_cast,
+                              garbage,
+                              reduce_temp);
+
+        block_sparse::add<<<1, 1, 0, streams[i]>>>(result_data, reduce_temp);
+
+//        dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
+//                                   thrust_cast,
+//                                   thrust_cast +
+//                                   out_block_max_dimensions[i](0));
       }
 
 
@@ -1153,9 +1177,12 @@ public:
       cudaStreamDestroy(streams[i]);
     }
 
-    if (result_rank == 0) {
-      cudaMemcpy(result_data, &dot_temp, sizeof(T), cudaMemcpyHostToDevice);
-    }
+    cudaFreeAsync(reduce_temp, 0);
+    cudaFreeAsync(garbage, 0);
+
+//    if (result_rank == 0) {
+//      cudaMemcpy(result_data, &dot_temp, sizeof(T), cudaMemcpyHostToDevice);
+//    }
 
 
     return BlockSparseTensor<T>(&result_data, concatenated_total_begin_points,
@@ -1166,7 +1193,7 @@ public:
   }
 
 #else
-  /// Contraction with another tensor
+  z /// Contraction with another tensor
   /// \param tensor another tensor to be contracted with
   /// \param contracting_indices the corresponding two indices for the dimensions to contract
   /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.

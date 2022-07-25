@@ -184,11 +184,12 @@ reshape_kernel_with_boost(const T * src_data,
     for (uint32_t j = 0; j < rank; j++) {
 
       tmp = tensor_residue /
-            block_index_tables[block_index * rank + rank - j - 1] +
-            column_boost[block_index * rank + j];
+            block_index_tables[block_index * rank + rank - j - 1];
 
       tensor_index += blocks_strides[block_index * rank + rank - j - 1] * tmp;
-      stacked_index += dest_index_table[rank - j - 1] * tmp;
+
+      stacked_index += dest_index_table[rank - j - 1] * tmp +
+                       column_boost[block_index * rank + j];
 
       tensor_residue %= block_index_tables[block_index * rank + rank - j - 1];
 
