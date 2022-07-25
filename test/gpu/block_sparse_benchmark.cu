@@ -25,6 +25,8 @@
     }
 
 
+typedef double datatype;
+
 TEST_CASE("Block-sparse n_blocks test") {
 
 #ifdef USE_CUTENSOR
@@ -57,20 +59,20 @@ std::cout << "contraction with unit length " << lengths(i) << std::endl;
 
 const arma::uword length = lengths(i);
 
-std::vector<double> tensor_data =
-    arma::conv_to<std::vector<double>>::from(
+std::vector<datatype> tensor_data =
+    arma::conv_to<std::vector<datatype>>::from(
         arma::randu<arma::vec>(length * length * length * length));
 
-std::vector<double> matrix_data =
-    arma::conv_to<std::vector<double>>::from(
+std::vector<datatype> matrix_data =
+    arma::conv_to<std::vector<datatype>>::from(
         arma::randu<arma::vec>(length * length));
 
-const torque::gpu::BlockSparseTensor<double>
+const torque::gpu::BlockSparseTensor<datatype>
     chunk_tensor(tensor_data.data(), arma::uvec{0, 0, 0, 0},
                  arma::uvec{length, length, length, length} - 1,
                  arma::uvec{length, length, length, length});
 
-const torque::gpu::BlockSparseTensor<double>
+const torque::gpu::BlockSparseTensor<datatype>
     chunk_matrix(matrix_data.data(), arma::uvec{0, 0},
                  arma::uvec{length, length} - 1,
                  arma::uvec{length, length});

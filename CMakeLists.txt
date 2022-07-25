@@ -282,6 +282,12 @@ if (USE_GPU)
             )
 
     target_link_libraries(block_sparse_benchmark catch2 torque gpu_torque)
+
+    add_executable(random_generated_block_sparse_benchmark
+            test/gpu/random_generated_block_sparse_benchmark.cu
+            )
+
+    target_link_libraries(random_generated_block_sparse_benchmark catch2 torque gpu_torque)
 endif ()
 
 

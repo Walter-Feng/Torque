@@ -10,6 +10,8 @@
 #include "gpu/sparse.cuh"
 #include "gpu/block_sparse.cuh"
 
+typedef double datatype;
+
 #define START_TIMER() {               \
       cudaEventCreate(&start);      \
       cudaEventCreate(&stop);       \
@@ -51,18 +53,18 @@ TEST_CASE("Block-sparse n_blocks test") {
 
     std::cout << "--- Matrix multiplication ---" << std::endl;
 
-    std::vector<double> tensor_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
+    std::vector<datatype> tensor_data =
+        arma::conv_to<std::vector<datatype>>::from(arma::randu<arma::vec>(1));
 
-    std::vector<double> matrix_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
+    std::vector<datatype> matrix_data =
+        arma::conv_to<std::vector<datatype>>::from(arma::randu<arma::vec>(1));
 
-    torque::gpu::BlockSparseTensor<double> tensor(tensor_data.data(),
+    torque::gpu::BlockSparseTensor<datatype> tensor(tensor_data.data(),
                                                   arma::uvec{0, 0},
                                                   arma::uvec{0, 0},
                                                   arma::uvec{1, 1});
 
-    torque::gpu::BlockSparseTensor<double> matrix(matrix_data.data(),
+    torque::gpu::BlockSparseTensor<datatype> matrix(matrix_data.data(),
                                                   arma::uvec{0, 0},
                                                   arma::uvec{0, 0},
                                                   arma::uvec{1, 1});
@@ -80,20 +82,20 @@ TEST_CASE("Block-sparse n_blocks test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::BlockSparseTensor<double>
+      const torque::gpu::BlockSparseTensor<datatype>
           chunk_tensor(tensor_data.data(), arma::uvec{0, 0},
                        arma::uvec{length, length} - 1,
                        arma::uvec{length, length});
 
-      const torque::gpu::BlockSparseTensor<double>
+      const torque::gpu::BlockSparseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{0, 0},
                        arma::uvec{length, length} - 1,
                        arma::uvec{length, length});
@@ -124,18 +126,18 @@ TEST_CASE("Block-sparse n_blocks test") {
 
     std::cout << "--- 3-rank tensor - matrix contraction ---" << std::endl;
 
-    std::vector<double> tensor_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
+    std::vector<datatype> tensor_data =
+        arma::conv_to<std::vector<datatype>>::from(arma::randu<arma::vec>(1));
 
-    std::vector<double> matrix_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
+    std::vector<datatype> matrix_data =
+        arma::conv_to<std::vector<datatype>>::from(arma::randu<arma::vec>(1));
 
-    torque::gpu::BlockSparseTensor<double> tensor(tensor_data.data(),
+    torque::gpu::BlockSparseTensor<datatype> tensor(tensor_data.data(),
                                                   arma::uvec{0, 0, 0},
                                                   arma::uvec{0, 0, 0},
                                                   arma::uvec{1, 1, 1});
 
-    torque::gpu::BlockSparseTensor<double> matrix(matrix_data.data(),
+    torque::gpu::BlockSparseTensor<datatype> matrix(matrix_data.data(),
                                                   arma::uvec{0, 0},
                                                   arma::uvec{0, 0},
                                                   arma::uvec{1, 1});
@@ -154,20 +156,20 @@ TEST_CASE("Block-sparse n_blocks test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::BlockSparseTensor<double>
+      const torque::gpu::BlockSparseTensor<datatype>
           chunk_tensor(tensor_data.data(), arma::uvec{0, 0, 0},
                        arma::uvec{length, length, length} - 1,
                        arma::uvec{length, length, length});
 
-      const torque::gpu::BlockSparseTensor<double>
+      const torque::gpu::BlockSparseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{0, 0},
                        arma::uvec{length, length} - 1,
                        arma::uvec{length, length});
@@ -199,18 +201,18 @@ TEST_CASE("Block-sparse n_blocks test") {
 
     std::cout << "--- 4-rank tensor - matrix contraction ---" << std::endl;
 
-    std::vector<double> tensor_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
+    std::vector<datatype> tensor_data =
+        arma::conv_to<std::vector<datatype>>::from(arma::randu<arma::vec>(1));
 
-    std::vector<double> matrix_data =
-        arma::conv_to<std::vector<double>>::from(arma::randu<arma::vec>(1));
+    std::vector<datatype> matrix_data =
+        arma::conv_to<std::vector<datatype>>::from(arma::randu<arma::vec>(1));
 
-    torque::gpu::BlockSparseTensor<double> tensor(tensor_data.data(),
+    torque::gpu::BlockSparseTensor<datatype> tensor(tensor_data.data(),
                                                   arma::uvec{0, 0, 0, 0},
                                                   arma::uvec{0, 0, 0, 0},
                                                   arma::uvec{1, 1, 1, 1});
 
-    torque::gpu::BlockSparseTensor<double> matrix(matrix_data.data(),
+    torque::gpu::BlockSparseTensor<datatype> matrix(matrix_data.data(),
                                                   arma::uvec{0, 0},
                                                   arma::uvec{0, 0},
                                                   arma::uvec{1, 1});
@@ -229,20 +231,20 @@ TEST_CASE("Block-sparse n_blocks test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length * length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::BlockSparseTensor<double>
+      const torque::gpu::BlockSparseTensor<datatype>
           chunk_tensor(tensor_data.data(), arma::uvec{0, 0, 0, 0},
                        arma::uvec{length, length, length, length} - 1,
                        arma::uvec{length, length, length, length});
 
-      const torque::gpu::BlockSparseTensor<double>
+      const torque::gpu::BlockSparseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{0, 0},
                        arma::uvec{length, length} - 1,
                        arma::uvec{length, length});
@@ -306,18 +308,18 @@ TEST_CASE("Dense Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_tensor(tensor_data.data(), arma::uvec{length, length});
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{length, length});
 
 
@@ -345,18 +347,18 @@ TEST_CASE("Dense Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_tensor(tensor_data.data(), arma::uvec{length, length, length});
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{length, length});
 
 
@@ -384,19 +386,19 @@ TEST_CASE("Dense Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length * length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_tensor(tensor_data.data(),
                        arma::uvec{length, length, length, length});
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{length, length});
 
 
@@ -445,18 +447,18 @@ TEST_CASE("Dense Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_tensor(tensor_data.data(), arma::uvec{length, length});
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{length, length});
 
 
@@ -484,18 +486,18 @@ TEST_CASE("Dense Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_tensor(tensor_data.data(), arma::uvec{length, length, length});
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{length, length});
 
 
@@ -523,19 +525,19 @@ TEST_CASE("Dense Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length * length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_tensor(tensor_data.data(),
                        arma::uvec{length, length, length, length});
 
-      const torque::gpu::DenseTensor<double>
+      const torque::gpu::DenseTensor<datatype>
           chunk_matrix(matrix_data.data(), arma::uvec{length, length});
 
 
@@ -588,12 +590,12 @@ TEST_CASE("Sparse Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
       arma::uvec tensor_indices(length * length);
@@ -612,11 +614,11 @@ TEST_CASE("Sparse Tensor Scaling test") {
           arma::uvec{length, length});
 
 
-      const torque::gpu::SparseTensor<double>
+      const torque::gpu::SparseTensor<datatype>
           chunk_tensor(tensor_data.data(), tensor_indices, tensor_index_table,
                        arma::uvec{length, length});
 
-      const torque::gpu::SparseTensor<double>
+      const torque::gpu::SparseTensor<datatype>
           chunk_matrix(matrix_data.data(), matrix_indices, matrix_index_table,
                        arma::uvec{length, length});
 
@@ -645,12 +647,12 @@ TEST_CASE("Sparse Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
 
@@ -669,11 +671,11 @@ TEST_CASE("Sparse Tensor Scaling test") {
       const arma::uvec matrix_index_table = torque::util::generate_index_table(
           arma::uvec{length, length});
 
-      const torque::gpu::SparseTensor<double>
+      const torque::gpu::SparseTensor<datatype>
           chunk_tensor(tensor_data.data(), tensor_indices, tensor_index_table,
                        arma::uvec{length, length, length});
 
-      const torque::gpu::SparseTensor<double>
+      const torque::gpu::SparseTensor<datatype>
           chunk_matrix(matrix_data.data(), matrix_indices, matrix_index_table,
                        arma::uvec{length, length});
 
@@ -702,12 +704,12 @@ TEST_CASE("Sparse Tensor Scaling test") {
 
       const arma::uword length = lengths(i);
 
-      std::vector<double> tensor_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length * length * length));
 
-      std::vector<double> matrix_data =
-          arma::conv_to<std::vector<double>>::from(
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(length * length));
 
       arma::uvec tensor_indices(length * length * length * length);
@@ -726,13 +728,13 @@ TEST_CASE("Sparse Tensor Scaling test") {
           arma::uvec{length, length});
 
 
-      const torque::gpu::SparseTensor<double>
+      const torque::gpu::SparseTensor<datatype>
           chunk_tensor(tensor_data.data(),
                        tensor_indices,
                        tensor_index_table,
                        arma::uvec{length, length, length, length});
 
-      const torque::gpu::SparseTensor<double>
+      const torque::gpu::SparseTensor<datatype>
           chunk_matrix(matrix_data.data(),
                        matrix_indices,
                        matrix_index_table,
