@@ -869,7 +869,7 @@ public:
         arma::cumsum(n_elem_wrt_A_block_in_uvec) - n_elem_wrt_A_block_in_uvec;
 
     // temporary variable for dot operation (i.e. result.rank == 0)
-//    T dot_temp = 0;
+
     T * reduce_temp;
     int * garbage;
     cudaMallocAsync(&reduce_temp, sizeof(T), 0);

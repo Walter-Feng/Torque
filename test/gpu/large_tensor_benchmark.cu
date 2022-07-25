@@ -16,7 +16,8 @@
       cudaEventRecord(start);       \
     }
 
-#define STOP_RECORD_TIMER(name) {       \
+#define STOP_RECORD_TIMER(name) { \
+      cudaDeviceSynchronize();             \
       cudaEventRecord(stop);         \
       cudaEventSynchronize(stop);            \
       cudaEventElapsedTime(&(name), start, stop); \
