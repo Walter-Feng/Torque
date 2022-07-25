@@ -1152,11 +1152,6 @@ public:
                               reduce_temp);
 
         block_sparse::add<<<1, 1, 0, streams[i]>>>(result_data, reduce_temp);
-
-//        dot_temp += thrust::reduce(thrust::cuda::par.on(streams[i]),
-//                                   thrust_cast,
-//                                   thrust_cast +
-//                                   out_block_max_dimensions[i](0));
       }
 
 
@@ -1179,11 +1174,6 @@ public:
 
     cudaFreeAsync(reduce_temp, 0);
     cudaFreeAsync(garbage, 0);
-
-//    if (result_rank == 0) {
-//      cudaMemcpy(result_data, &dot_temp, sizeof(T), cudaMemcpyHostToDevice);
-//    }
-
 
     return BlockSparseTensor<T>(&result_data, concatenated_total_begin_points,
                                 concatenated_total_end_points,
