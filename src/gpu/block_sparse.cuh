@@ -889,9 +889,15 @@ public:
 
     cudaStream_t streams[n_A_blocks];
 
+#ifdef LOW_MEMORY
+    for (size_t i = 0; i < n_A_blocks; i++) {
+      streams[i] = 0;
+    }
+#else
     for (size_t i = 0; i < n_A_blocks; i++) {
       cudaStreamCreate(streams + i);
     }
+#endif
 
     for (size_t i = 0; i < n_A_blocks; i++) {
 

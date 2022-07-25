@@ -151,6 +151,10 @@ if (USE_GPU)
             else ()
                 add_definitions(-DUSE_CUTENSOR)
 
+                if(LOW_MEMORY)
+                    add_definitions(-DLOW_MEMORY)
+                endif()
+
                 if (WITH_CUTENSOR)
                     if (NOT TARGET cutensor)
                         add_library(cutensor SHARED IMPORTED)
@@ -238,12 +242,12 @@ target_link_libraries(test_tensor catch2 torque)
 
 if (USE_GPU)
     add_executable(test_gpu_tensor
-#            test/gpu/sparse_test.cu
+            test/gpu/sparse_test.cu
             )
 
     if (CUTT_ROOT)
         target_sources(test_gpu_tensor PUBLIC
-#                test/gpu/dense_test.cu
+                test/gpu/dense_test.cu
                 test/gpu/block_sparse_test.cu
                 )
     endif ()
