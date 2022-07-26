@@ -125,7 +125,7 @@ block_in_range(const arma::umat & contracting_indices,
       contracting_tables.col(i) = util::generate_index_table(
           non_trivial_min_end_indices.col(i)
           - non_trivial_max_begin_indices.col(i)
-          + arma::ones<arma::uvec>(contracting_indices.n_rows));
+          + 1);
 
     }
 
