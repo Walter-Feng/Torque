@@ -20,6 +20,20 @@
 
 #include "util/space.h"
 
+#define START_TIMER() {               \
+      cudaEventCreate(&start);      \
+      cudaEventCreate(&stop);       \
+      cudaEventRecord(start);       \
+    }
+
+#define STOP_RECORD_TIMER(name) {       \
+      cudaEventRecord(stop);         \
+      cudaEventSynchronize(stop);            \
+      cudaEventElapsedTime(&(name), start, stop); \
+      cudaEventDestroy(start);                  \
+      cudaEventDestroy(stop);                   \
+    }
+
 namespace torque {
 namespace gpu {
 namespace block_sparse {
@@ -763,6 +777,11 @@ public:
            const BlockSparseTensor<T> & tensor,
            const arma::umat & contracting_indices) const {
 
+    cudaEvent_t start;
+    cudaEvent_t stop;
+    float time = -1;
+    START_TIMER();
+
     const arma::uvec this_contracting_indices = contracting_indices.col(0);
     const arma::uvec that_contracting_indices = contracting_indices.col(1);
 
@@ -893,8 +912,13 @@ public:
       cudaStreamCreate(streams + i);
     }
 
+    STOP_RECORD_TIMER(time);
+
+    std::cout << "pre-condition time: " << time << std::endl;
+
     for (size_t i = 0; i < n_A_blocks; i++) {
 
+          START_TIMER();
       T * B_blocks_copy;
       T * out_blocks_copy;
 
@@ -1102,6 +1126,10 @@ public:
 
       // Execute the tensor contraction
 
+          STOP_RECORD_TIMER(time);
+
+    std::cout << "before execution time: " << time << std::endl;
+
       err = cutensorContraction(cutensor_handle,
                                 &plan,
                                 (void *) &one,
@@ -1193,6 +1221,10 @@ public:
            const BlockSparseTensor<T> & tensor,
            const arma::umat & contracting_indices) const {
 
+    cudaEvent_t start;
+    cudaEvent_t stop;
+    float time = -1;
+    START_TIMER();
     const auto permutation_generator =
         [](const arma::uvec & contracting_indices,
            const arma::uword target_rank) -> arma::uvec {
@@ -1320,8 +1352,14 @@ public:
     }
 #endif
 
+    STOP_RECORD_TIMER(time);
+
+    std::cout << "pre-condition time: " << time << std::endl;
+
     for (arma::uword non_trivial_i = 0;
          non_trivial_i < contraction_infos.size(); non_trivial_i++) {
+
+      START_TIMER();
 
       T * A_copies;
       T * B_copies;
@@ -1465,6 +1503,10 @@ public:
 
       const bool A_is_sorted = A_non_trivial_permutation.is_sorted();
       const bool B_is_sorted = B_non_trivial_permutation.is_sorted();
+
+      STOP_RECORD_TIMER(time);
+
+      std::cout << "before cutt: " << time << std::endl;
 
       if (!A_is_sorted) {
         assert(arma::prod(padded_A_block_max_dimension) != 0);
