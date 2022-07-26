@@ -1490,11 +1490,11 @@ public:
                                   arma::prod(padded_B_block_max_dimension) *
                                   sizeof(T), streams[i]));
 
-        cuttCheck(cuttPlanMeasureAsync(&planB, B_cutt_rank,
-                                       B_dim_in_cutt.data(),
-                                       B_permutation_in_cutt.data(),
-                                       sizeof(T), streams[i], B_copies,
-                                       B_transposed_pointer));
+        cuttCheck(cuttPlanMeasure(&planB, B_cutt_rank,
+                                  B_dim_in_cutt.data(),
+                                  B_permutation_in_cutt.data(),
+                                  sizeof(T), streams[i], B_copies,
+                                  B_transposed_pointer));
 
 
         cuttCheck(cuttExecute(planB, B_copies, B_transposed_pointer));
@@ -1596,8 +1596,9 @@ public:
 
         T * flattened;
         gpuErrchk(cudaMallocAsync(&flattened,
-                             arma::accu(arma::prod(new_subblock_dimensions)) *
-                             sizeof(T), streams[i]));
+                                  arma::accu(
+                                      arma::prod(new_subblock_dimensions)) *
+                                  sizeof(T), streams[i]));
 
         assert(arma::all(dimension_after_multiplication ==
                          arma::max(new_subblock_dimensions, 1)));
