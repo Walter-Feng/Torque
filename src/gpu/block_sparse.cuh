@@ -692,7 +692,6 @@ public:
 
         // all elements at this location in other blocks are set to zero
         for (arma::uword i = 1; i < in_range.n_elem; i++) {
-          const T zero = 0;
           const arma::uword block_index_setting_null = in_range(i);
           gpuErrchk(
               cudaMemset(this->data + block_offsets(block_index_setting_null)
