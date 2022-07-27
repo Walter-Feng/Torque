@@ -788,7 +788,7 @@ public:
     const arma::uvec this_contracting_indices = contracting_indices.col(0);
     const arma::uvec that_contracting_indices = contracting_indices.col(1);
 
-    const arma::uword n_blocks = contraction_info.blocks_indices.n_elem;
+    const arma::uword n_blocks = contraction_info.blocks_indices.n_cols;
 
     arma::uvec this_dimension_copy = this->dimension;
     this_dimension_copy.shed_rows(this_contracting_indices);
@@ -833,6 +833,9 @@ public:
     const arma::uvec result_blocks_offsets =
         result_rank ? torque::util::nest_sum(result_blocks_n_elem)
                     : arma::zeros<arma::uvec>(n_blocks);
+
+    const T one = 1;
+    const T zero = result_rank ? 0 : 1;
 
     T * result_data;
 
@@ -1000,9 +1003,6 @@ public:
                                                worksize));
 
       cutensorStatus_t err;
-
-      const T one = 1;
-      const T zero = result_rank ? 0 : 1;
 
       err = cutensorContraction(cutensor_handle,
                                 &plan,
@@ -1687,7 +1687,7 @@ public:
 
   }
 
-protected:
+//protected:
   /// Stores data
   T * data = nullptr;
 };
