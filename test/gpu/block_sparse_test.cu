@@ -205,16 +205,9 @@ TEST_CASE("block sparse tensor operation") {
     CHECK(contraction_2.query({0, 1}) == 16);
     CHECK(contraction_2.query({1, 1}) == 19);
 
-    tensor_format.begin_points.print("tensor_format.begin_points");
-    tensor_format.end_points.print("tensor_format.end_points");
-    tensor_format.block_n_elem.print("tensor_format.block_n_elem");
     const auto contraction_3 = tensor_format.contract(handle,
                                                       vector_in_tensor,
                                                       arma::umat{{2, 0}});
-
-    contraction_3.begin_points.print("begin_points");
-    contraction_3.end_points.print("end_points");
-    contraction_3.block_n_elem.print("block_n_elem");
 
     const arma::uword n_elem = arma::sum(contraction_3.block_n_elem);
     std::vector<float> check(n_elem);
