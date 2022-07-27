@@ -82,6 +82,12 @@ gpuAssert(cudaError_t code, const char * file, int line, bool abort = true) {
 
 template<typename T>
 cutensorComputeType_t cutensor_compute_type() {
+
+  static_assert(
+      std::is_same<T, float>::value || std::is_same<T, double>::value ||
+      std::is_same<T, half>::value, "CUTENSOR only supports float, double and half"
+                                    "precision");
+
   if constexpr(std::is_same<T, float>::value) {
     return CUTENSOR_COMPUTE_32F;
   } else if constexpr(std::is_same<T, double>::value) {
@@ -89,10 +95,19 @@ cutensorComputeType_t cutensor_compute_type() {
   } else if constexpr(std::is_same<T, half>::value) {
     return CUTENSOR_COMPUTE_16F;
   }
+
+  __builtin_unreachable();
 }
 
 template<typename T>
 cudaDataType_t cutensor_data_type() {
+
+  static_assert(
+      std::is_same<T, float>::value || std::is_same<T, double>::value ||
+      std::is_same<T, half>::value, "CUTENSOR only supports float, double and half"
+                                    "precision");
+
+
   if constexpr(std::is_same<T, float>::value) {
     return CUDA_R_32F;
   } else if constexpr(std::is_same<T, double>::value) {
@@ -100,6 +115,8 @@ cudaDataType_t cutensor_data_type() {
   } else if constexpr(std::is_same<T, half>::value) {
     return CUDA_R_16F;
   }
+
+  __builtin_unreachable();
 }
 
 #endif
