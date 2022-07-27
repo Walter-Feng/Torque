@@ -784,6 +784,13 @@ public:
                                                        tensor.begin_points,
                                                        tensor.end_points);
 
+    contraction_info.blocks_indices.print("blocks_indices");
+    contraction_info.new_begin_points.print("new_begin_points");
+    contraction_info.new_end_points.print("new_end_points");
+    contraction_info.A_begin_points.print("A_begin_points");
+    contraction_info.A_end_points.print("A_end_points");
+    contraction_info.B_begin_points.print("B_begin_points");
+    contraction_info.B_end_points.print("B_end_points");
 
     const arma::uvec this_contracting_indices = contracting_indices.col(0);
     const arma::uvec that_contracting_indices = contracting_indices.col(1);
