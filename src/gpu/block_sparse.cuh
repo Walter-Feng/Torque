@@ -868,9 +868,15 @@ public:
 
     cudaStream_t streams[n_blocks];
 
+#ifdef LOW_MEMORY
+    for (size_t i = 0; i < n_blocks; i++) {
+      streams[i] = 0;
+    }
+#else
     for (size_t i = 0; i < n_blocks; i++) {
       cudaStreamCreate(streams + i);
     }
+#endif
 
     std::vector<int> total(this->rank + tensor.rank);
     for (int j = 0; j < this->rank + tensor.rank; j++) {
@@ -900,9 +906,6 @@ public:
 
     for (size_t i = 0; i < n_blocks; i++) {
 
-      const auto A_index = A_indices(i);
-      const auto B_index = B_indices(i);
-
       const int64_t * this_dim =
           A_subblock_dimensions_in_int64_t.memptr() + i * this->rank;
       const int64_t * this_table = A_table.memptr() + i * this->rank;
@@ -910,6 +913,7 @@ public:
       const int64_t * that_dim =
           B_subblock_dimensions_in_int64_t.memptr() + i * tensor.rank;
       const int64_t * that_table = B_table.memptr() + i * tensor.rank;
+
       const int64_t * result_dim =
           result_blocks_dimension_in_int64_t.memptr() + i * result_rank;
       const int64_t * result_table_pointer =
@@ -989,11 +993,20 @@ public:
 
       // Query workspace
       size_t worksize = 0;
+
+#ifdef LOW_MEMORY
+      HANDLE_ERROR(cutensorContractionGetWorkspaceSize(cutensor_handle,
+                                                       &desc,
+                                                       &find,
+                                                       CUTENSOR_WORKSPACE_MIN,
+                                                       &worksize));
+#else
       HANDLE_ERROR(cutensorContractionGetWorkspaceSize(cutensor_handle,
                                                        &desc,
                                                        &find,
                                                        CUTENSOR_WORKSPACE_RECOMMENDED,
                                                        &worksize));
+#endif
 
       // Allocate workspace
       void * work;
