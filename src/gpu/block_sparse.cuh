@@ -1002,14 +1002,7 @@ public:
 
       // Allocate workspace
       void * work;
-      if (worksize > 0) {
-        if (cudaSuccess != cudaMallocAsync(&work, worksize,
-                                           streams[i])) // This is optional!
-        {
-          work = nullptr;
-          worksize = 0;
-        }
-      }
+      gpuErrchk(cudaMallocAsync(&work, worksize, streams[i]));
 
       // Create Contraction Plan
       cutensorContractionPlan_t plan;
