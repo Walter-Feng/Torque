@@ -1278,6 +1278,7 @@ public:
     arma::umat total_begin_points;
     arma::umat total_end_points;
 
+
     for (arma::uword i = 0; i < this->block_n_elem.n_elem; i++) {
       const arma::uvec A_begin_point = this->begin_points.col(i);
       const arma::uvec A_end_point = this->end_points.col(i);

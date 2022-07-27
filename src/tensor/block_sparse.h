@@ -80,6 +80,18 @@ arma::Mat<T> sort_into_matrix(const T * block,
 }
 
 struct
+reducedContractionInfo {
+  arma::umat blocks_indices; // The selection of tensor blocks with non-trivial contribution
+  arma::umat new_begin_points; // The begin points of new blocks from contraction
+  arma::umat new_end_points; // The end points of new blocks from contraction
+
+  arma::umat A_begin_points;
+  arma::umat A_end_points;
+  arma::umat B_begin_points;
+  arma::umat B_end_points;
+};
+
+struct
 ContractionInfo {
   arma::uvec block_indices; // The selection of tensor blocks with non-trivial contribution
   arma::umat new_begin_points; // The begin points of new blocks from contraction
@@ -101,6 +113,13 @@ block_in_range(const arma::umat & contracting_indices,
                const arma::uvec & A_end_point,
                const arma::umat & B_begin_points,
                const arma::umat & B_end_points);
+
+reducedContractionInfo
+optimized_block_in_range(const arma::umat & contracting_indices,
+                         const arma::umat & A_begin_points,
+                         const arma::umat & A_end_points,
+                         const arma::umat & B_begin_points,
+                         const arma::umat & B_end_points);
 
 
 }

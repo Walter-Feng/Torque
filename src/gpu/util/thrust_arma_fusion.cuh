@@ -15,18 +15,9 @@ namespace gpu {
 namespace util {
 
 template<typename T>
-void arma_to_cuda(T * dest, const arma::Col<T> & vector, cudaStream_t stream = 0) {
-  T * pinned_memory;
-  cudaMallocHost(&pinned_memory, vector.n_elem * sizeof(T));
-
-  for(arma::uword i=0; i<vector.n_elem; i++) {
-    pinned_memory[i] = vector(i);
-  }
-
-  cudaMemcpyAsync(dest, pinned_memory, sizeof(T) * vector.n_elem,
+void arma_to_cuda(T * dest, const arma::Mat<T> & vector, cudaStream_t stream = 0) {
+  cudaMemcpyAsync(dest, vector.memptr(), sizeof(T) * vector.n_elem,
                   cudaMemcpyHostToDevice, stream);
-
-  cudaFreeHost(pinned_memory);
 }
 
 

@@ -3,6 +3,147 @@
 namespace torque {
 namespace block_sparse {
 
+arma::uvec sort_index_helper(const arma::uword length,
+                             const arma::uvec & contracting_indices) {
+  arma::uvec full(length);
+  for (arma::uword i = 0; i < length; i++) {
+    full(i) = i;
+  }
+
+  full.shed_rows(contracting_indices);
+
+  return arma::sort_index(arma::join_vert(full, contracting_indices));
+}
+
+arma::umat glue_back_contraction_dimension(arma::umat original,
+                                           const arma::umat & contraction,
+                                           const arma::uvec & contracting_indices) {
+  assert(original.n_cols == contraction.n_cols);
+  original.shed_rows(contracting_indices);
+
+  const arma::umat glued = arma::join_vert(original, contraction);
+
+  return glued.rows(sort_index_helper(glued.n_rows, contracting_indices));
+}
+
+template<bool is_max>
+arma::ucube
+get_extremum(const arma::umat & A,
+             const arma::umat & B) {
+  assert(A.n_rows == B.n_rows);
+
+  arma::umat A_rep = arma::repmat(A, 1, B.n_cols);
+  arma::umat B_rep = arma::repelem(B, 1, A.n_cols);
+
+  arma::ucube A_rep_in_cube(A_rep.memptr(), A.n_rows, A.n_cols, B.n_cols,
+                            false);
+  arma::ucube B_rep_in_cube(B_rep.memptr(), A.n_rows, A.n_cols, B.n_cols,
+                            false);
+
+  if constexpr(is_max) {
+    return arma::max(A_rep_in_cube, B_rep_in_cube);
+  } else {
+    return arma::min(A_rep_in_cube, B_rep_in_cube);
+  }
+
+}
+
+reducedContractionInfo
+optimized_block_in_range(const arma::umat & contracting_indices,
+                         const arma::umat & A_begin_points,
+                         const arma::umat & A_end_points,
+                         const arma::umat & B_begin_points,
+                         const arma::umat & B_end_points) {
+
+  const arma::uvec A_contracting_indices = contracting_indices.col(0);
+  const arma::uvec B_contracting_indices = contracting_indices.col(1);
+
+  const arma::umat A_begin_points_contraction = A_begin_points.rows(
+      A_contracting_indices);
+  const arma::umat A_end_points_contraction = A_end_points.rows(
+      A_contracting_indices);
+
+  const arma::umat B_begin_points_contraction = B_begin_points.rows(
+      B_contracting_indices);
+  const arma::umat B_end_points_contraction = B_end_points.rows(
+      B_contracting_indices);
+
+  arma::ucube begin_points_max = get_extremum<true>(
+      A_begin_points_contraction, B_begin_points_contraction);
+
+  arma::ucube end_points_min = get_extremum<false>(
+      A_end_points_contraction, B_end_points_contraction);
+
+  const arma::uvec valid_indices = arma::find(
+      begin_points_max < end_points_min);
+
+  arma::Mat<int> valid_indices_mask(begin_points_max.n_rows,
+                                    begin_points_max.n_cols *
+                                    begin_points_max.n_slices,
+                                    arma::fill::zeros);
+
+  valid_indices_mask(valid_indices) += 1;
+
+  const arma::uvec non_trivial_indices = arma::find(
+      arma::prod(valid_indices_mask));
+
+  arma::umat begin_points_max_in_mat(begin_points_max.memptr(),
+                                     begin_points_max.n_rows,
+                                     begin_points_max.n_cols *
+                                     begin_points_max.n_slices, false);
+
+  arma::umat end_points_min_in_mat(end_points_min.memptr(),
+                                   end_points_min.n_rows,
+                                   end_points_min.n_cols *
+                                   end_points_min.n_slices, false);
+
+  const arma::umat non_trivial_block_indices = arma::ind2sub(
+      arma::size(A_begin_points.n_cols, B_begin_points.n_cols),
+      non_trivial_indices);
+
+  const auto glued_A_begin_points =
+      glue_back_contraction_dimension(
+          A_begin_points.cols(non_trivial_block_indices.row(0).t()),
+          begin_points_max_in_mat.cols(non_trivial_indices), A_contracting_indices);
+
+  const auto glued_A_end_points =
+      glue_back_contraction_dimension(
+          A_end_points.cols(non_trivial_block_indices.row(0).t()),
+          end_points_min_in_mat.cols(non_trivial_indices), A_contracting_indices);
+
+  const auto glued_B_begin_points =
+      glue_back_contraction_dimension(
+          B_begin_points.cols(non_trivial_block_indices.row(1).t()),
+          begin_points_max_in_mat.cols(non_trivial_indices), B_contracting_indices);
+
+  const auto glued_B_end_points =
+      glue_back_contraction_dimension(
+          B_end_points.cols(non_trivial_block_indices.row(1).t()),
+          end_points_min_in_mat.cols(non_trivial_indices), B_contracting_indices);
+
+  arma::umat glued_A_begin_points_copy = glued_A_begin_points;
+  glued_A_begin_points_copy.shed_rows(A_contracting_indices);
+  arma::umat glued_A_end_points_copy = glued_A_end_points;
+  glued_A_end_points_copy.shed_rows(A_contracting_indices);
+
+  arma::umat glued_B_begin_points_copy = glued_B_begin_points;
+  glued_B_begin_points_copy.shed_rows(B_contracting_indices);
+  arma::umat glued_B_end_points_copy = glued_B_end_points;
+  glued_B_end_points_copy.shed_rows(B_contracting_indices);
+
+  return {
+    non_trivial_block_indices,
+    arma::join_vert(glued_A_begin_points_copy, glued_B_begin_points_copy),
+    arma::join_vert(glued_A_end_points_copy, glued_B_end_points_copy),
+    glued_A_begin_points,
+    glued_A_end_points,
+    glued_B_begin_points,
+    glued_B_end_points
+  };
+
+}
+
+
 ContractionInfo
 block_in_range(const arma::umat & contracting_indices,
                const arma::uvec & A_begin_point,
