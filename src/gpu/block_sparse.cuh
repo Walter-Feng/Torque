@@ -994,19 +994,11 @@ public:
       // Query workspace
       size_t worksize = 0;
 
-#ifdef LOW_MEMORY
-      HANDLE_ERROR(cutensorContractionGetWorkspaceSize(cutensor_handle,
-                                                       &desc,
-                                                       &find,
-                                                       CUTENSOR_WORKSPACE_MIN,
-                                                       &worksize));
-#else
       HANDLE_ERROR(cutensorContractionGetWorkspaceSize(cutensor_handle,
                                                        &desc,
                                                        &find,
                                                        CUTENSOR_WORKSPACE_RECOMMENDED,
                                                        &worksize));
-#endif
 
       // Allocate workspace
       void * work;
