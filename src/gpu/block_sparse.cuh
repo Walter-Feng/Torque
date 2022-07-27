@@ -845,8 +845,8 @@ public:
 
 
     if (result_rank == 0) {
-      gpuErrchk(cudaMalloc(&result_data, sizeof(T)));
-      cudaMalloc(&reduce_temp, n_blocks * sizeof(T));
+      gpuErrchk(cudaMalloc(&result_data, n_blocks * sizeof(T)));
+      cudaMalloc(&reduce_temp, sizeof(T));
       cudaMalloc(&garbage, sizeof(int));
     } else {
       gpuErrchk(cudaMalloc(&result_data,
@@ -1032,19 +1032,21 @@ public:
       cudaStreamDestroy(streams[i]);
     }
 
-    const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
-    dot_temp_data);
-
-    const thrust::constant_iterator<int> dummy_key(0);
-
-    thrust::reduce_by_key(dummy_key,
-                          dummy_key + n_blocks,
-                          thrust_cast,
-                          garbage,
-                          result_data);
-
     if (result_rank == 0) {
-      cudaFree(reduce_temp);
+      const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
+          result_data);
+
+      const thrust::constant_iterator<int> dummy_key(0);
+
+      thrust::reduce_by_key(thrust::device,
+                            dummy_key,
+                            dummy_key + n_blocks,
+                            thrust_cast,
+                            garbage,
+                            dot_temp_data);
+
+      cudaFree(result_data);
+      result_data = dot_temp_data;
       cudaFree(garbage);
     }
 
