@@ -1048,9 +1048,11 @@ public:
       if (work) gpuErrchk(cudaFreeAsync(work, streams[i]));
     }
 
+#ifndef LOW_MEMORY
     for (size_t i = 0; i < n_blocks; i++) {
       cudaStreamDestroy(streams[i]);
     }
+#endif
 
     if (result_rank == 0) {
       const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
