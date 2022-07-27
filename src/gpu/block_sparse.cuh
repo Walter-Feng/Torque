@@ -838,16 +838,9 @@ public:
     const T zero = 0;
 
     T * result_data;
-    T * dot_temp_data;
-
-    T * reduce_temp;
-    int * garbage;
-
 
     if (result_rank == 0) {
       gpuErrchk(cudaMalloc(&result_data, n_blocks * sizeof(T)));
-      cudaMalloc(&reduce_temp, sizeof(T));
-      cudaMalloc(&garbage, sizeof(int));
     } else {
       gpuErrchk(cudaMalloc(&result_data,
                            sizeof(T) *
@@ -1038,15 +1031,20 @@ public:
 
       const thrust::constant_iterator<int> dummy_key(0);
 
+      T * reduce_temp;
+      int * garbage;
+      cudaMalloc(&reduce_temp, sizeof(T));
+      cudaMalloc(&garbage, sizeof(int));
+
       thrust::reduce_by_key(thrust::device,
                             dummy_key,
                             dummy_key + n_blocks,
                             thrust_cast,
                             garbage,
-                            dot_temp_data);
+                            reduce_temp);
 
       cudaFree(result_data);
-      result_data = dot_temp_data;
+      result_data = reduce_temp;
       cudaFree(garbage);
     }
 
