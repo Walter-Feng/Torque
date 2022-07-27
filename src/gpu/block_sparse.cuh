@@ -832,16 +832,22 @@ public:
 
     const arma::uvec result_blocks_offsets =
         result_rank ? torque::util::nest_sum(result_blocks_n_elem)
-                    : arma::zeros<arma::uvec>(n_blocks);
+                    : arma::cumsum(arma::uvec(n_blocks, arma::fill::ones)) - 1;
 
     const T one = 1;
-    const T zero = result_rank ? 0 : 1;
+    const T zero = 0;
 
     T * result_data;
+    T * dot_temp_data;
+
+    T * reduce_temp;
+    int * garbage;
+
 
     if (result_rank == 0) {
       gpuErrchk(cudaMalloc(&result_data, sizeof(T)));
-      gpuErrchk(cudaMemset(result_data, 0, sizeof(T)));
+      cudaMalloc(&reduce_temp, n_blocks * sizeof(T));
+      cudaMalloc(&garbage, sizeof(int));
     } else {
       gpuErrchk(cudaMalloc(&result_data,
                            sizeof(T) *
@@ -1024,6 +1030,22 @@ public:
 
     for (size_t i = 0; i < n_blocks; i++) {
       cudaStreamDestroy(streams[i]);
+    }
+
+    const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
+    dot_temp_data);
+
+    const thrust::constant_iterator<int> dummy_key(0);
+
+    thrust::reduce_by_key(dummy_key,
+                          dummy_key + n_blocks,
+                          thrust_cast,
+                          garbage,
+                          result_data);
+
+    if (result_rank == 0) {
+      cudaFree(reduce_temp);
+      cudaFree(garbage);
     }
 
     return BlockSparseTensor<T>(&result_data, contraction_info.new_begin_points,
