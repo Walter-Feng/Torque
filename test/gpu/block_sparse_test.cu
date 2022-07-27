@@ -209,11 +209,6 @@ TEST_CASE("block sparse tensor operation") {
                                                       vector_in_tensor,
                                                       arma::umat{{2, 0}});
 
-    const arma::uword n_elem = arma::sum(contraction_3.block_n_elem);
-    std::vector<float> check(n_elem);
-    cudaMemcpy(check.data(), contraction_3.data, n_elem * sizeof(float), cudaMemcpyDeviceToHost);
-    arma::Col<float>(check).print("data");
-
     CHECK(contraction_3.query({1, 0}) == 11);
 
   }
