@@ -808,6 +808,15 @@ public:
     const arma::uvec A_indices = contraction_info.blocks_indices.row(0).t();
     const arma::uvec B_indices = contraction_info.blocks_indices.row(1).t();
 
+    const arma::Mat<int64_t> A_table =
+        arma::conv_to<arma::Mat<int64_t>>::from(
+            this->index_tables.cols(A_indices));
+
+    const arma::Mat<int64_t> B_table =
+        arma::conv_to<arma::Mat<int64_t>>::from(
+            tensor.index_tables.cols(B_indices));
+
+
     const arma::uvec A_subblock_offsets =
         arma::sum((contraction_info.A_begin_points -
                    this->begin_points.cols(A_indices)) %
@@ -823,6 +832,10 @@ public:
     const arma::umat result_blocks_dimension =
         contraction_info.new_end_points - contraction_info.new_begin_points + 1;
 
+    const arma::Mat<int64_t> result_table =
+        arma::conv_to<arma::Mat<int64_t>>::from(
+            arma::cumprod(result_blocks_dimension) / result_blocks_dimension);
+
     const arma::uword result_rank = new_dimension.n_elem;
 
     const arma::uvec result_blocks_n_elem =
@@ -831,6 +844,14 @@ public:
     const arma::uvec result_blocks_offsets =
         result_rank ? torque::util::nest_sum(result_blocks_n_elem)
                     : arma::cumsum(arma::uvec(n_blocks, arma::fill::ones)) - 1;
+
+
+    const arma::Mat<int64_t> A_subblock_dimensions_in_int64_t =
+        arma::conv_to<arma::Mat<int64_t>>::from(A_subblock_dimensions);
+    const arma::Mat<int64_t> B_subblock_dimensions_in_int64_t =
+        arma::conv_to<arma::Mat<int64_t>>::from(B_subblock_dimensions);
+    const arma::Mat<int64_t> result_blocks_dimension_in_int64_t =
+        arma::conv_to<arma::Mat<int64_t>>::from(result_blocks_dimension);
 
     const T one = 1;
     const T zero = 0;
@@ -873,39 +894,34 @@ public:
         arma::conv_to<std::vector<int>>::from(
             arma::nonzeros(arma::Col<int>(total)));
 
+    const auto compute_type = cutensor_compute_type<T>();
+    const auto data_type = cutensor_data_type<T>();
+
+
     for (size_t i = 0; i < n_blocks; i++) {
 
       const auto A_index = A_indices(i);
       const auto B_index = B_indices(i);
 
-      const auto this_dim = arma::conv_to<std::vector<int64_t>>::from(
-          A_subblock_dimensions.col(i));
-      const auto this_table = arma::conv_to<std::vector<int64_t>>::from(
-          this->index_tables.col(A_index));
+      const int64_t * this_dim =
+          A_subblock_dimensions_in_int64_t.memptr() + i * this->rank;
+      const int64_t * this_table = A_table.memptr() + i * this->rank;
 
-      const auto that_dim = arma::conv_to<std::vector<int64_t>>::from(
-          B_subblock_dimensions.col(i));
-      const auto that_table = arma::conv_to<std::vector<int64_t>>::from(
-          tensor.index_tables.col(B_index));
-
-      const auto result_dim =
-          arma::conv_to<std::vector<int64_t>>::from(
-              result_blocks_dimension.col(i));
-
-      const auto result_table = arma::conv_to<std::vector<int64_t>>::from(
-          torque::util::generate_index_table(result_blocks_dimension.col(i)));
-
-      const auto compute_type = cutensor_compute_type<T>();
-      const auto data_type = cutensor_data_type<T>();
-
+      const int64_t * that_dim =
+          B_subblock_dimensions_in_int64_t.memptr() + i * tensor.rank;
+      const int64_t * that_table = B_table.memptr() + i * tensor.rank;
+      const int64_t * result_dim =
+          result_blocks_dimension_in_int64_t.memptr() + i * result_rank;
+      const int64_t * result_table_pointer =
+          result_table.memptr() + i * result_rank;
 
       cutensorTensorDescriptor_t this_descriptor;
 
       HANDLE_ERROR(cutensorInitTensorDescriptor(cutensor_handle,
                                                 &this_descriptor,
                                                 this->rank,
-                                                this_dim.data(),
-                                                this_table.data(),
+                                                this_dim,
+                                                this_table,
                                                 data_type,
                                                 CUTENSOR_OP_IDENTITY));
 
@@ -914,8 +930,8 @@ public:
       HANDLE_ERROR(cutensorInitTensorDescriptor(cutensor_handle,
                                                 &that_descriptor,
                                                 tensor.rank,
-                                                that_dim.data(),
-                                                that_table.data(),
+                                                that_dim,
+                                                that_table,
                                                 data_type,
                                                 CUTENSOR_OP_IDENTITY));
 
@@ -923,8 +939,8 @@ public:
       HANDLE_ERROR(cutensorInitTensorDescriptor(cutensor_handle,
                                                 &result_descriptor,
                                                 new_dimension.n_elem,
-                                                result_dim.data(),
-                                                result_table.data(),
+                                                result_dim,
+                                                result_table_pointer,
                                                 data_type,
                                                 CUTENSOR_OP_IDENTITY));
 
