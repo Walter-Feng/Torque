@@ -75,7 +75,7 @@ optimized_block_in_range(const arma::umat & contracting_indices,
       A_end_points_contraction, B_end_points_contraction);
 
   const arma::uvec valid_indices = arma::find(
-      begin_points_max < end_points_min);
+      begin_points_max <= end_points_min);
 
   arma::Mat<int> valid_indices_mask(begin_points_max.n_rows,
                                     begin_points_max.n_cols *
