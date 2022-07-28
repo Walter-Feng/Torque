@@ -43,7 +43,7 @@ TEST_CASE("Block-sparse n_blocks test") {
   float gpu_time_contraction = -1;
 
   std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
-  const arma::uword length = 24;
+  const arma::uword length = 32;
   const arma::uword slice = 3;
   const arma::uword n_calls = 1000;
 
