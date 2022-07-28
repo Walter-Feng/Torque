@@ -1039,8 +1039,6 @@ public:
     }
 #endif
 
-    cudaDeviceSynchronize();
-
     if (result_rank == 0) {
       const thrust::device_ptr<T> thrust_cast = thrust::device_pointer_cast(
           result_data);
