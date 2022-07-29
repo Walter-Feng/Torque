@@ -46,8 +46,8 @@ TEST_CASE("Block-sparse n_blocks test") {
   float gpu_time_contraction = -1;
 
   std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
-  const arma::uvec lengths{2, 4, 8, 16, 32, 64};
-  const arma::uvec power{0, 2, 3, 4, 4, 4};
+  const arma::uvec lengths{2, 4, 8, 16, 32};
+  const arma::uvec power{0, 2, 3, 4, 4};
 
   SECTION("Matrix multiplication") {
 
@@ -295,7 +295,7 @@ TEST_CASE("Dense Tensor Scaling test") {
   cutensorHandle_t handle;
   cutensorInit(&handle);
 
-  const arma::uvec lengths{2, 4, 8, 16, 32, 64};
+  const arma::uvec lengths{2, 4, 8, 16, 32};
 
   SECTION("Matrix multiplication") {
 
@@ -576,8 +576,8 @@ TEST_CASE("Sparse Tensor Scaling test") {
   cublasHandle_t handle;
   cublasCreate(&handle);
 
-  const arma::uvec lengths{2, 4, 8, 16, 32, 64};
-  const arma::uvec power{1, 2, 3, 4, 5, 5};
+  const arma::uvec lengths{2, 4, 8, 16, 32};
+  const arma::uvec power{1, 2, 3, 4, 5};
 
   SECTION("Matrix multiplication") {
 

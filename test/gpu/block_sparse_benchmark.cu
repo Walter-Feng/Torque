@@ -45,7 +45,7 @@ cudaEvent_t stop;
 float gpu_time_contraction = -1;
 
 std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
-const arma::uvec lengths{64};
+const arma::uvec lengths{32};
 const arma::uvec power{4};
 
 SECTION("4-rank tensor - matrix contraction") {
