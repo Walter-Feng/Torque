@@ -483,12 +483,14 @@ public:
       if (*source_data) {
         this->data = *source_data;
       } else {
+        std::cout << "T ** constructor " << std::endl;
         throw Error("Source data not allocated!");
       }
     } else {
       if (*source_data) {
         this->data = *source_data;
       } else {
+        std::cout << "T ** constructor " << std::endl;
         throw Error("Source data not allocated!");
       }
     }
