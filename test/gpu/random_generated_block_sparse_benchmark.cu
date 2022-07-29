@@ -129,6 +129,9 @@ TEST_CASE("Block-sparse n_blocks test") {
 
       total_time += gpu_time_contraction;
 
+      tensor_data.clear();
+      matrix_data.clear();
+
     }
 
   }
