@@ -829,7 +829,7 @@ public:
         arma::sum((contraction_info.B_begin_points -
                    tensor.begin_points.cols(B_indices)) %
                   tensor.index_tables.cols(B_indices)).t() +
-        this->block_offsets(B_indices);
+        tensor.block_offsets(B_indices);
 
     const arma::umat result_blocks_dimension =
         contraction_info.new_end_points - contraction_info.new_begin_points + 1;
