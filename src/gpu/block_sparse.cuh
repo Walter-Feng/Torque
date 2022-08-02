@@ -1084,10 +1084,6 @@ public:
            const BlockSparseTensor<T> & tensor,
            const arma::umat & contracting_indices) const {
 
-    cudaEvent_t start;
-    cudaEvent_t stop;
-    float time = -1;
-    START_TIMER();
     const auto permutation_generator =
         [](const arma::uvec & contracting_indices,
            const arma::uword target_rank) -> arma::uvec {
@@ -1216,14 +1212,8 @@ public:
     }
 #endif
 
-    STOP_RECORD_TIMER(time);
-
-    std::cout << "pre-condition time: " << time << std::endl;
-
     for (arma::uword non_trivial_i = 0;
          non_trivial_i < contraction_infos.size(); non_trivial_i++) {
-
-      START_TIMER();
 
       T * A_copies;
       T * B_copies;
@@ -1367,10 +1357,6 @@ public:
 
       const bool A_is_sorted = A_non_trivial_permutation.is_sorted();
       const bool B_is_sorted = B_non_trivial_permutation.is_sorted();
-
-      STOP_RECORD_TIMER(time);
-
-      std::cout << "before cutt: " << time << std::endl;
 
       if (!A_is_sorted) {
         assert(arma::prod(padded_A_block_max_dimension) != 0);
