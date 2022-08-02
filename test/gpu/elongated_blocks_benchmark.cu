@@ -97,7 +97,7 @@ TEST_CASE("Block-sparse n_blocks test") {
           arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(32 * 32));
 
-      const arma::vec rand_matrix = arma::randu(4);
+      const arma::vec rand_matrix = arma::randu(8);
       const arma::uvec non_trivial_matrices = arma::find(
           rand_matrix < target_sparsity);
       arma::umat matrix_begin_points(2, non_trivial_matrices.n_elem);
