@@ -28,114 +28,101 @@ typedef double datatype;
 TEST_CASE("Block-sparse n_blocks test") {
 
 #ifdef USE_CUTENSOR
-cutensorHandle_t cutensor_handle;
+  cutensorHandle_t cutensor_handle;
   cutensorHandle_t * handle = &cutensor_handle;
   cutensorInit(&cutensor_handle);
 #else
-cublasHandle_t handle;
-cublasCreate(&handle);
+  cublasHandle_t handle;
+  cublasCreate(&handle);
 #endif
 
 // (From Eric's code)
-cudaEvent_t start;
-cudaEvent_t stop;
+  cudaEvent_t start;
+  cudaEvent_t stop;
 
-float gpu_time_contraction = -1;
+  float gpu_time_contraction = -1;
 
-std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
-const arma::uword length = 32;
-const arma::uword slice = 2;
-const arma::uword n_calls = 1000;
+  std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
+  const arma::uword length = 32;
+  const arma::uword slice = 2;
+  const arma::uword n_calls = 1000;
 
-const double target_sparsity = 0.2;
+  const double target_sparsity = 0.2;
 
-double total_time = 0;
+  double total_time = 0;
 
-SECTION("4-rank tensor - matrix contraction") {
+  SECTION("4-rank tensor - matrix contraction") {
 
-std::cout << "--- 4-rank tensor - matrix contraction ---" << std::endl;
-
-
-for (int i = 0; i < n_calls; i++) {
-
-const arma::uword slice_per_dim = std::pow(2, slice);
-const arma::uword block_length_per_dim = length / slice_per_dim;
-
-const arma::vec rand = arma::randu(std::pow(slice_per_dim, 4));
-const arma::uvec non_trivial_blocks = arma::find(rand < target_sparsity);
-
-arma::umat begin_points(4, non_trivial_blocks.n_elem);
-const arma::uvec blocks_space{slice_per_dim, slice_per_dim,
-                              slice_per_dim, slice_per_dim};
-
-const arma::uvec blocks_table = torque::util::generate_index_table(
-    blocks_space);
-
-for (arma::uword j = 0; j < non_trivial_blocks.n_elem; j++) {
-begin_points.col(j) =
-    torque::util::index_to_indices(non_trivial_blocks(j),
-                                   blocks_table) *
-    block_length_per_dim;
-}
-
-const arma::umat end_points = begin_points + 3;
-
-std::vector<datatype> tensor_data =
-    arma::conv_to<std::vector<datatype>>::from(
-        arma::randu<arma::vec>(
-            std::pow(block_length_per_dim, 4) *
-            non_trivial_blocks.n_elem));
-
-const torque::gpu::BlockSparseTensor<datatype>
-    chunk_tensor(tensor_data.data(), begin_points, end_points,
-                 arma::uvec{length, length, length, length});
+    std::cout << "--- 4-rank tensor - matrix contraction ---" << std::endl;
 
 
-const arma::vec matrix_rand = arma::randu(std::pow(slice_per_dim, 2));
-const arma::uvec non_trivial_matrices = arma::find(
-    matrix_rand < target_sparsity);
+    for (int i = 0; i < n_calls; i++) {
 
-arma::umat matrix_begin_points(2, non_trivial_matrices.n_elem);
-const arma::uvec matrices_space{slice_per_dim, slice_per_dim};
+      const arma::uword slice_per_dim = std::pow(2, slice);
+      const arma::uword block_length_per_dim = length / slice_per_dim;
 
-const arma::uvec matrices_table = torque::util::generate_index_table(
-    matrices_space);
+      const arma::vec rand = arma::randu(std::pow(slice_per_dim, 4));
+      const arma::uvec non_trivial_blocks = arma::find(rand < target_sparsity);
 
-for (arma::uword j = 0; j < non_trivial_matrices.n_elem; j++) {
-matrix_begin_points.col(j) =
-    torque::util::index_to_indices(non_trivial_matrices(j),
-                                   matrices_table) *
-    block_length_per_dim;
-}
+      arma::umat begin_points(4, non_trivial_blocks.n_elem);
 
-const arma::umat matrix_end_points = matrix_begin_points + 3;
+      const arma::uvec blocks_space{1, slice_per_dim,
+                                    slice_per_dim, slice_per_dim};
 
-std::vector<datatype> matrix_data =
-    arma::conv_to<std::vector<datatype>>::from(
-        arma::randu<arma::vec>(
-            std::pow(block_length_per_dim, 2) *
-            non_trivial_matrices.n_elem));
+      const arma::uvec blocks_table = torque::util::generate_index_table(
+          blocks_space);
 
-const torque::gpu::BlockSparseTensor<datatype>
-    chunk_matrix(matrix_data.data(), matrix_begin_points,
-                 matrix_end_points,
-                 arma::uvec{length, length});
+      for (arma::uword j = 0; j < non_trivial_blocks.n_elem; j++) {
+        begin_points.col(j) =
+            torque::util::index_to_indices(non_trivial_blocks(j),
+                                           blocks_table) *
+            block_length_per_dim;
+      }
 
-START_TIMER();
-const auto contraction = chunk_tensor.contract(handle, chunk_matrix,
-                                               {{1, 1},
-                                                {2, 0}});
-STOP_RECORD_TIMER(gpu_time_contraction);
+      const arma::umat end_points = begin_points + arma::uvec{31, 3, 3, 3};
 
-total_time += gpu_time_contraction;
+      std::vector<datatype> tensor_data =
+          arma::conv_to<std::vector<datatype>>::from(
+              arma::randu<arma::vec>(
+                  std::pow(block_length_per_dim, 3) * 32 *
+                  non_trivial_blocks.n_elem));
 
-}
+      const torque::gpu::BlockSparseTensor<datatype>
+          chunk_tensor(tensor_data.data(), begin_points, end_points,
+                       arma::uvec{length, length, length, length});
 
-}
 
-std::cout << "contraction time per call: " << total_time << " ms" << std::endl;
-std::cout << std::endl;
-std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
+      std::vector<datatype> matrix_data =
+          arma::conv_to<std::vector<datatype>>::from(
+              arma::randu<arma::vec>(32 * 32));
+
+      arma::umat matrix_begin_points(4, 1);
+      matrix_begin_points.col(0) = arma::uvec{0, 0};
+
+      arma::umat matrix_end_points(4, 1);
+      matrix_begin_points.col(0) = arma::uvec{31, 31};
+
+      const torque::gpu::BlockSparseTensor<datatype>
+          chunk_matrix(matrix_data.data(), matrix_begin_points,
+                       matrix_end_points,
+                       arma::uvec{length, length});
+
+      START_TIMER();
+      const auto contraction = chunk_tensor.contract(handle, chunk_matrix,
+                                                     {{1, 1},
+                                                      {2, 0}});
+      STOP_RECORD_TIMER(gpu_time_contraction);
+
+      total_time += gpu_time_contraction;
+
+    }
+
+  }
+
+  std::cout << "contraction time per call: " << total_time << " ms"
+            << std::endl;
+  std::cout << std::endl;
+  std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
 
 
 }
