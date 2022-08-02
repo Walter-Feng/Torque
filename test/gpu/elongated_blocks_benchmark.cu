@@ -44,7 +44,7 @@ TEST_CASE("Block-sparse n_blocks test") {
 
   std::cout << "--------- Block-sparse n_blocks test ---------" << std::endl;
   const arma::uword length = 32;
-  const arma::uword slice = 2;
+  const arma::uword slice = 3;
   const arma::uword n_calls = 1000;
 
   const double target_sparsity = 0.2;
@@ -61,7 +61,7 @@ TEST_CASE("Block-sparse n_blocks test") {
       const arma::uword slice_per_dim = std::pow(2, slice);
       const arma::uword block_length_per_dim = length / slice_per_dim;
 
-      const arma::vec rand = arma::randu(std::pow(slice_per_dim, 4));
+      const arma::vec rand = arma::randu(std::pow(slice_per_dim, 3));
       const arma::uvec non_trivial_blocks = arma::find(rand < target_sparsity);
 
       arma::umat begin_points(4, non_trivial_blocks.n_elem);
@@ -79,7 +79,8 @@ TEST_CASE("Block-sparse n_blocks test") {
             block_length_per_dim;
       }
 
-      const arma::umat end_points = begin_points.each_col() + arma::uvec{31, 3, 3, 3};
+      const arma::umat end_points =
+          begin_points.each_col() + arma::uvec{31, 3, 3, 3};
 
       std::vector<datatype> tensor_data =
           arma::conv_to<std::vector<datatype>>::from(
@@ -96,11 +97,14 @@ TEST_CASE("Block-sparse n_blocks test") {
           arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(32 * 32));
 
-      arma::umat matrix_begin_points(2, 1);
-      matrix_begin_points.col(0) = arma::uvec{0, 0};
+      const arma::vec rand_matrix = arma::randu(4);
+      const arma::uvec non_trivial_matrices = arma::find(
+          rand_matrix < target_sparsity);
+      arma::umat matrix_begin_points(2, non_trivial_matrices.n_elem);
+      matrix_begin_points.row(0) = 0;
+      matrix_begin_points.row(1) = non_trivial_matrices * 8;
 
-      arma::umat matrix_end_points(2, 1);
-      matrix_begin_points.col(0) = arma::uvec{31, 31};
+      arma::umat matrix_end_points = matrix_begin_points.each_col() + arma::uvec{31, 3};
 
       const torque::gpu::BlockSparseTensor<datatype>
           chunk_matrix(matrix_data.data(), matrix_begin_points,
