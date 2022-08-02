@@ -92,18 +92,13 @@ TEST_CASE("Block-sparse n_blocks test") {
           chunk_tensor(tensor_data.data(), begin_points, end_points,
                        arma::uvec{length, length, length, length});
 
-      const arma::vec rand_matrix = arma::randu(8);
-      const arma::uvec non_trivial_matrices = arma::find(
-          rand_matrix < target_sparsity);
-      arma::umat matrix_begin_points(2, non_trivial_matrices.n_elem, arma::fill::zeros);
-
       std::vector<datatype> matrix_data =
           arma::conv_to<std::vector<datatype>>::from(
-              arma::randu<arma::vec>(32 * non_trivial_matrices.n_elem));
+              arma::randu<arma::vec>(32 * 32));
 
-      matrix_begin_points.row(1) = non_trivial_matrices.t() * 8;
+      const arma::umat matrix_begin_points(2, 1, arma::fill::zeros);
 
-      arma::umat matrix_end_points = matrix_begin_points.each_col() + arma::uvec{31, 3};
+      arma::umat matrix_end_points = matrix_begin_points + 31;
 
       const torque::gpu::BlockSparseTensor<datatype>
           chunk_matrix(matrix_data.data(), matrix_begin_points,
