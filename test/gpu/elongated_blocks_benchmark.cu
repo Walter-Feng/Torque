@@ -96,10 +96,10 @@ TEST_CASE("Block-sparse n_blocks test") {
           arma::conv_to<std::vector<datatype>>::from(
               arma::randu<arma::vec>(32 * 32));
 
-      arma::umat matrix_begin_points(4, 1);
+      arma::umat matrix_begin_points(2, 1);
       matrix_begin_points.col(0) = arma::uvec{0, 0};
 
-      arma::umat matrix_end_points(4, 1);
+      arma::umat matrix_end_points(2, 1);
       matrix_begin_points.col(0) = arma::uvec{31, 31};
 
       const torque::gpu::BlockSparseTensor<datatype>
