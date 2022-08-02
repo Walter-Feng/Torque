@@ -79,7 +79,7 @@ TEST_CASE("Block-sparse n_blocks test") {
             block_length_per_dim;
       }
 
-      const arma::umat end_points = begin_points + arma::uvec{31, 3, 3, 3};
+      const arma::umat end_points = begin_points.each_col() + arma::uvec{31, 3, 3, 3};
 
       std::vector<datatype> tensor_data =
           arma::conv_to<std::vector<datatype>>::from(
