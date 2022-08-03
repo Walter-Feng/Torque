@@ -207,8 +207,7 @@ TEST_CASE("Block-sparse n_blocks test 2 - slice") {
 
       START_TIMER();
       const auto contraction = chunk_tensor.contract(handle, chunk_matrix,
-                                                     {{0, 0},
-                                                      {1, 1}});
+                                                     {{0, 0}});
       STOP_RECORD_TIMER(gpu_time_contraction);
 
       total_time += gpu_time_contraction;
