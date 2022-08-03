@@ -268,6 +268,13 @@ endif()
             )
 
     target_link_libraries(dense_peps_benchmark catch2 torque gpu_torque)
+
+    add_executable(large_tensor_benchmark
+            test/gpu/large_tensor_benchmark.cu
+            )
+
+    target_link_libraries(large_tensor_benchmark catch2 torque gpu_torque)
+
 endif()
 
 
