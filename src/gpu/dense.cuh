@@ -221,7 +221,8 @@ cudaDataType_t cutensor_data_type() {
         /// \param contracting_indices the corresponding two indices for the dimensions to contract
         /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
         DenseTensor<T>
-        contract(const DenseTensor<T> &tensor, const arma::umat &contracting_indices) const {
+        contract(const cublasHandle_t handle,
+            const DenseTensor<T> &tensor, const arma::umat &contracting_indices) const {
 
             T one = 1;
             T zero = 0;
@@ -432,9 +433,6 @@ cudaDataType_t cutensor_data_type() {
 
             const arma::uword this_leading_dim = arma::prod(this->dimension) / contracting_n_elem;
             const arma::uword that_leading_dim = arma::prod(tensor.dimension) / contracting_n_elem;
-
-            cublasHandle_t handle;
-            cublasCreate(&handle);
 
             const T * this_pointer = this_transposed.has_value() ?
                                      thrust::raw_pointer_cast(this_transposed.value().data.data()) :

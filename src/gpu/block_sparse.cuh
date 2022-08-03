@@ -726,9 +726,6 @@ namespace block_sparse {
                 T * A_ptr = !A_is_sorted ? A_transposed_pointer : A_copies;
                 T * B_ptr = !B_is_sorted ? B_transposed_pointer : B_copies;
 
-                cublasHandle_t handle;
-                cublasCreate(&handle);
-
                 if(result_rank > 0) {
 
                     const arma::uword contracting_n_elem = arma::prod(A_block_max_dimension(this_contracting_indices));
