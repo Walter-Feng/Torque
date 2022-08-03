@@ -465,7 +465,9 @@ namespace block_sparse {
         /// \param contracting_indices the corresponding two indices for the dimensions to contract
         /// from two tensors. It should be a (n x 2) matrix, with first col representing "this" tensor.
         BlockSparseTensor<T>
-        contract(const BlockSparseTensor<T> &tensor, const arma::umat &contracting_indices) const {
+        contract(cublasHandle_t handle,
+                 const BlockSparseTensor<T> &tensor,
+                 const arma::umat &contracting_indices) const {
 
 //            cudaStream_t stream1, stream2;
 //
@@ -931,6 +933,60 @@ namespace block_sparse {
 
             return a;
         }
+
+      torque::gpu::BlockSparseTensor<T>
+      slice(const arma::uvec & divisor) const {
+
+        const arma::umat sub_blocks = blocks_dimension.each_col() / divisor;
+
+        const arma::uvec divisor_table = torque::util::generate_index_table(
+            divisor);
+
+        const arma::uword n_sub_blocks = arma::prod(divisor);
+
+        const arma::umat residue =
+            blocks_dimension - sub_blocks.each_col() % divisor;
+
+        if (!residue.is_zero()) {
+          throw Error("current slice does not support residues");
+        }
+
+        arma::umat new_begin_points;
+        arma::umat new_end_points;
+        arma::umat new_index_tables;
+
+        for (int i = 0; i < begin_points.n_cols; i++) {
+
+          const arma::uvec begin_point = begin_points.col(i);
+          const arma::uvec end_point = end_points.col(i);
+
+          arma::umat new_begin_points_generated(this->rank, n_sub_blocks);
+          arma::umat new_end_points_generated(this->rank, n_sub_blocks);
+
+          for (arma::uword j = 0; j < n_sub_blocks; j++) {
+            const arma::uvec sub_block_index =
+                torque::util::index_to_indices(j, divisor_table);
+
+            new_begin_points_generated.col(j) =
+                begin_point + sub_block_index % sub_blocks.col(i);
+
+            new_end_points_generated.col(j) =
+                new_begin_points_generated.col(j) + sub_blocks.col(i) - 1;
+          }
+
+          new_begin_points = arma::join_horiz(new_begin_points,
+                                              new_begin_points_generated);
+          new_end_points = arma::join_horiz(new_end_points,
+                                            new_end_points_generated);
+          new_index_tables =
+              arma::join_horiz(new_index_tables,
+                               arma::repmat(index_tables.col(i), 1, n_sub_blocks));
+        }
+
+        return BlockSparseTensor<T>(this->data, new_begin_points, new_end_points,
+                                    dimension, cudaMemcpyDeviceToDevice);
+
+      }
 
     protected:
         /// Stores data
